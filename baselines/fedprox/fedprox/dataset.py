@@ -50,17 +50,17 @@ def load_datasets(  # pylint: disable=too-many-arguments
         seed=seed,
        
     )
-    print(f' test shape data {testset.shape}')
+    print(f' test shape data {len(testset)}')
+    print(f' train shape data {len(datasets)}')
+    print(f' valid shape data {len(validset)}')
     # Split each partition into train/val and create DataLoader
     trainloaders = []
     valloaders = []
     #create data loaders
-    trainloaders=DataLoader(datasets, batch_size=batch_size, shuffle=True))
     
-    valloaders=DataLoader(validset, batch_size=batch_size)
     testloaders=DataLoader(testset, batch_size=batch_size)
     print(f' train loader example {datasets[0]}')
-    '''
+    
     for dataset in datasets:
         len_val = int(len(dataset) / (1 / val_ratio))
         lengths = [len(dataset) - len_val, len_val]
@@ -69,5 +69,5 @@ def load_datasets(  # pylint: disable=too-many-arguments
         )
         trainloaders.append(DataLoader(ds_train, batch_size=batch_size, shuffle=True))
         valloaders.append(DataLoader(ds_val, batch_size=batch_size))
-    '''
+    
     return trainloaders, valloaders,testloaders

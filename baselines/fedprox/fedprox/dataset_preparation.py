@@ -38,10 +38,14 @@ def makeBreastnistdata(root_path, prefix):
     train_label=data['train_labels']
     print(f'train_data shape:{train_data.shape}')
     return train_data , train_label
-  else:
+  elif prefix=='test':
     val_data=data['test_images']
     val_label=data['test_labels']
     print( f'test data shape {val_data.shape}')
+  elif prefix=='valid':
+    val_data=data['val_images']
+    val_label=data['val_labels']
+    print( f'valid data shape {val_data.shape}')
     return val_data , val_label
 #we define the data partitions of heterogeneity and domain shift
 #then the purpose of this code is split a dataset among a number of clients and choose the way of spliting if it is iid or no iid etc
@@ -132,6 +136,7 @@ def _partition_data(
       print(f' configuration of my code {root_path}')
       trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
       testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
+      validset=BreastMnistDataset(root_path,prefix='valid',transform=transform)
     else:
       trainset, testset = _download_data()
     if balance:
@@ -149,8 +154,12 @@ def _partition_data(
     partition_size = int(len(trainset) / num_clients)
     print(f' par {partition_size} and len of train is {len(trainset)}')
     lengths = [partition_size] * num_clients
-
+    partition_size_valid = int(len(validset) / num_clients)
+    lengths_valid = [partition_size_valid] * num_clients
+    
     if iid:
+        client_validsets = random_split(validset, lengths_valid, torch.Generator().manual_seed(seed))
+
         datasets = random_split(trainset, lengths, torch.Generator().manual_seed(seed))
     else:
         if power_law:
@@ -182,7 +191,7 @@ def _partition_data(
                 for i in range(num_clients)
             ]
 
-    return datasets, testset
+    return datasets, testset , client_validsets
 
 
 def _balance_classes(
