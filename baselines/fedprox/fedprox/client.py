@@ -11,7 +11,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.client import NumPyClient, Client
-from fedprox.models import test, train,train_gpaf,test_gpaf
+from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,GPAF,Discriminator
 
 
 # pylint: disable=too-many-arguments
@@ -22,7 +22,7 @@ class FlowerClient(
 
     def __init__(
         self,
-        net: torch.nn.Module,
+        model: torch.nn.Module,
         trainloader: DataLoader,
         valloader: DataLoader,
         device: torch.device,
@@ -32,7 +32,8 @@ class FlowerClient(
      partition_id
 
     ):  # pylint: disable=too-many-arguments
-        self.net = net
+        #self.net = net
+        self.model = model
         self.trainloader = trainloader
         self.valloader = valloader
         self.device = device
@@ -43,15 +44,39 @@ class FlowerClient(
 
 
     def get_parameters(self, config: Dict[str, Scalar]) -> NDArrays:
-        """Return the parameters of the current net."""
+        """Return the parameters of the current net.
         return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
+        """
+        """Return the parameters of the encoder and classifier."""
+        return [
+            val.cpu().numpy() for _, val in self.encoder.state_dict().items()
+        ] + [
+            val.cpu().numpy() for _, val in self.classifier.state_dict().items()
+        ]
 
     def set_parameters(self, parameters: NDArrays) -> None:
-        """Change the parameters of the model using the given ones."""
+        """Change the parameters of the model using the given ones.
         #Combines the keys of the state dictionary with the new parameter values into a list of key-value pairs.
         params_dict = zip(self.net.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
         self.net.load_state_dict(state_dict, strict=True)
+"""
+        """Set the parameters of the encoder and classifier."""
+        print("Parameters structure:")
+        for i, param in enumerate(parameters):
+          print(f"Parameter {i}: Shape = {param.shape}")
+
+        encoder_params = zip(self.encoder.state_dict().keys(),parameters[:len(self.encoder.state_dict())])
+        classifier_params = zip(self.encoder.state_dict().keys(),parameters[len(self.encoder.state_dict()):])
+
+        encoder_state_dict = OrderedDict({
+            k: torch.tensor(v) for k, v in  encoder_params})
+        classifier_state_dict = OrderedDict({
+            k: torch.tensor(v) for k, v in classifier_params })
+      
+
+        self.encoder.load_state_dict(encoder_state_dict, strict=True)
+        self.classifier.load_state_dict(classifier_state_dict, strict=True)
 
     def fit(
         self, parameters: NDArrays, config: Dict[str, Scalar]
@@ -161,15 +186,27 @@ def gen_client_fn(
 
         print(f"Client ID: {cid}")
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        net = instantiate(model).to(device)
-        
+        #get the model 
+        #net = instantiate(model).to(device)
+        # Instantiate the encoder and classifier'
+        # Define dimensions
+        input_dim = 28  # Example: 28x28 images flattened
+        hidden_dim = 128
+        latent_dim = 64
+        num_classes = 2  # Example: MNIST has 10 classes
+ 
+        encoder = Encoder(input_dim, hidden_dim, latent_dim).to(device)
+        classifier = Classifier(latent_dim, num_classes).to(device)
+        discriminator = Discriminator(latent_dim=64, num_domains=3).to(device)
+        model = GPAF(encoder, classifier).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]
         valloader = valloaders[int(cid)]
 
         return FlowerClient(
-            net,
+            model,
+            
             trainloader,
             valloader,
             device,

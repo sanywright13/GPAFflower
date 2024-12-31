@@ -8,7 +8,51 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.utils.data import DataLoader
 
+#a simple encoder and classifier implementation
+class Encoder(nn.Module):
+    """Encoder network for feature extraction."""
 
+    def __init__(self, input_dim: int, hidden_dim: int, latent_dim: int):
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, latent_dim)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+class Classifier(nn.Module):
+    """Classifier network for label prediction."""
+
+    def __init__(self, latent_dim: int, num_classes: int):
+        super().__init__()
+        self.fc1 = nn.Linear(latent_dim, num_classes)
+
+    def forward(self, x):
+        return self.fc1(x)
+
+class Discriminator(nn.Module):
+    def __init__(self, latent_dim: int, num_domains: int):
+        super().__init__()
+        self.fc1 = nn.Linear(latent_dim, num_domains)
+
+    def forward(self, x):
+        return self.fc1(x)
+
+class GPAF(nn.Module):
+    def __init__(self, encoder: nn.Module, classifier: nn.Module, discriminator: nn.Module):
+        super().__init__()
+        self.encoder = encoder
+        self.classifier = classifier
+        self.discriminator = discriminator
+
+    def forward(self, x):
+        z = self.encoder(x)  # Latent representation
+        y_pred = self.classifier(z)  # Class predictions
+        d_pred = self.discriminator(z)  # Domain predictions
+        return y_pred, d_pred
 class Net(nn.Module):
     """Convolutional Neural Network architecture.
 
@@ -134,12 +178,14 @@ def test_gpaf(net, testloader,DEVICE):
 
     return loss, accuracy
 
-def train_one_epoch_gpaf(net, global_params,trainloader, DEVICE,client_id, epochs,verbose=False):
+def train_one_epoch_gpaf(model, global_params,trainloader, DEVICE,client_id, epochs,verbose=False):
     """Train the network on the training set."""
-    criterion = torch.nn.CrossEntropyLoss()
+    #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
     optimizer = torch.optim.Adam(net.parameters(),lr=lr,weight_decay=1e-4)
-    net.train()
+    criterion_cls = nn.CrossEntropyLoss()  # Classification loss
+    criterion_disc = nn.CrossEntropyLoss()  # Discriminator loss
+    model.train()
     for epoch in range(epochs):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
@@ -151,12 +197,16 @@ def train_one_epoch_gpaf(net, global_params,trainloader, DEVICE,client_id, epoch
             labels=labels.squeeze(1)
             #print(labels)
             optimizer.zero_grad()
-            outputs = net(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
+            outputs = model(images)
+            #we compute two losses discriminator and classification loss
+            loss_cls = criterion_cls(outputs, labels)  # Classification loss
+            loss_disc = criterion_disc(outputs, client_id)  # Discriminator loss
+            total_loss = loss_cls + loss_disc  # Combined loss
+            #loss = criterion(outputs, labels)
+            total_loss.backward()
             optimizer.step()
             # Metrics
-            epoch_loss += loss
+            epoch_loss += total_loss
             total += labels.size(0)
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
         epoch_loss /= len(trainloader.dataset)
