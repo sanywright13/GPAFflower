@@ -40,34 +40,28 @@ def load_datasets(  # pylint: disable=too-many-arguments
     """
     print(f"Dataset partitioning config: {config}")
     transform = build_transform()
-    datasets, testset ,validset= _partition_data(
+    datasets, testset ,validsets= _partition_data(
         num_clients,
         config.dataset_name,
-         transform=transform,
+        transform=transform,
         iid=config.iid,
         balance=config.balance,
         power_law=config.power_law,
         seed=seed,
        
     )
-    print(f' test shape data {len(testset)}')
-    print(f' train shape data {len(datasets)}')
-    print(f' valid shape data {len(validset)}')
+    #print(f' test shape data {testset[0]}')
     # Split each partition into train/val and create DataLoader
     trainloaders = []
     valloaders = []
     #create data loaders
     
     testloaders=DataLoader(testset, batch_size=batch_size)
-    print(f' train loader example {datasets[0]}')
+    #print(f' train loader example {datasets[0]}')
     
-    for dataset in datasets:
-        len_val = int(len(dataset) / (1 / val_ratio))
-        lengths = [len(dataset) - len_val, len_val]
-        ds_train, ds_val = random_split(
-            dataset, lengths, torch.Generator().manual_seed(seed)
-        )
-        trainloaders.append(DataLoader(ds_train, batch_size=batch_size, shuffle=True))
-        valloaders.append(DataLoader(ds_val, batch_size=batch_size))
+    for i,trainset in enumerate(datasets):
+        
+        trainloaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True))
+        valloaders.append(DataLoader(validsets[i], batch_size=batch_size))
     
     return trainloaders, valloaders,testloaders

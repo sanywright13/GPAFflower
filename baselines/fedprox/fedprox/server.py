@@ -11,7 +11,9 @@ from torch.utils.data import DataLoader
 
 from fedprox.models import test,test_gpaf
 
+#here i will implement my strategy
 
+'''
 def gen_evaluate_fn(
     testloader: DataLoader,
     device: torch.device,
@@ -57,3 +59,4 @@ def gen_evaluate_fn(
         return loss, {"accuracy": accuracy}
 
     return evaluate
+'''

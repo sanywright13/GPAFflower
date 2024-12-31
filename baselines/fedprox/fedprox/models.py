@@ -106,6 +106,7 @@ def train_gpaf( net: nn.Module,
     learning_rate: float,):
 #
     global_params = [val.detach().clone() for val in net.parameters()]
+    
     net = train_one_epoch_gpaf(
             net, global_params, trainloader, device,client_id,
             epochs
@@ -118,9 +119,11 @@ def test_gpaf(net, testloader,DEVICE):
     net.eval()
     with torch.no_grad():
         for batch in testloader:
-            images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            images, labels = batch
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            #images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
             labels=labels.squeeze(1)
-            print(labels)
+            #rint(labels)
             outputs = net(images)
             loss += criterion(outputs, labels).item()
             _, predicted = torch.max(outputs.data, 1)
@@ -128,9 +131,10 @@ def test_gpaf(net, testloader,DEVICE):
             correct += (predicted == labels).sum().item()
     loss /= len(testloader.dataset)
     accuracy = correct / total
+
     return loss, accuracy
 
-def train_one_epoch_gpaf(net, global_params,trainloader, DEVICE,client_id,criterion,optimizer, epochs,verbose=False):
+def train_one_epoch_gpaf(net, global_params,trainloader, DEVICE,client_id, epochs,verbose=False):
     """Train the network on the training set."""
     criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
@@ -139,8 +143,11 @@ def train_one_epoch_gpaf(net, global_params,trainloader, DEVICE,client_id,criter
     for epoch in range(epochs):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
-
-            images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            images, labels = batch
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
+          
+            
+            #images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
             labels=labels.squeeze(1)
             #print(labels)
             optimizer.zero_grad()

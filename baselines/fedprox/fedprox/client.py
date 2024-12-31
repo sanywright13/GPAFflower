@@ -28,7 +28,7 @@ class FlowerClient(
         device: torch.device,
         num_epochs: int,
         learning_rate: float,
-        straggler_schedule: np.ndarray,
+        #straggler_schedule: np.ndarray,
      partition_id
 
     ):  # pylint: disable=too-many-arguments
@@ -38,7 +38,7 @@ class FlowerClient(
         self.device = device
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
-        self.straggler_schedule = straggler_schedule,
+        #self.straggler_schedule = straggler_schedule,
         self.client_id=partition_id
 
 
@@ -48,6 +48,7 @@ class FlowerClient(
 
     def set_parameters(self, parameters: NDArrays) -> None:
         """Change the parameters of the model using the given ones."""
+        #Combines the keys of the state dictionary with the new parameter values into a list of key-value pairs.
         params_dict = zip(self.net.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
         self.net.load_state_dict(state_dict, strict=True)
@@ -66,12 +67,13 @@ class FlowerClient(
         # This method always returns via the metrics (last argument being
         # returned) whether the client is a straggler or not. This info
         # is used by strategies other than FedProx to discard the update.
+        '''
         if (
             self.straggler_schedule[int(config["curr_round"]) - 1]
             and self.num_epochs > 1
         ):
             num_epochs = np.random.randint(1, self.num_epochs)
-
+            
             if config["drop_client"]:
                 # return without doing any training.
                 # The flag in the metric will be used to tell the strategy
@@ -81,9 +83,9 @@ class FlowerClient(
                     len(self.trainloader),
                     {"is_straggler": True},
                 )
-
-        else:
-            num_epochs = self.num_epochs
+        '''
+        #else:
+        num_epochs = self.num_epochs
 
         train_gpaf(
             self.net,
@@ -97,12 +99,12 @@ class FlowerClient(
 
         return self.get_parameters({}), len(self.trainloader), {"is_straggler": False}
 
-    def evaluate(
-        self, parameters: NDArrays, config: Dict[str, Scalar]
+    def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.net, self.valloader, self.device)
+        print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
 
 
@@ -153,7 +155,7 @@ def gen_client_fn(
         )
     )
 
-    def client_fn(context: Context) -> FlowerClient:
+    def client_fn(context: Context) -> Client:
         # Access the client ID (cid) from the context
         cid = context.node_config["partition-id"]
 
@@ -173,7 +175,7 @@ def gen_client_fn(
             device,
             num_epochs,
             learning_rate,
-            stragglers_mat[int(cid)],
+           # stragglers_mat[int(cid)],
             cid
 
         )

@@ -1,7 +1,7 @@
 """Runs CNN federated learning for MNIST dataset."""
 
 from typing import Dict, Union
-
+import mlflow
 import flwr as fl
 import hydra
 from hydra.core.hydra_config import HydraConfig
@@ -66,10 +66,11 @@ def main(cfg: DictConfig) -> None:
 
     # instantiate strategy according to config. Here we pass other arguments
     # that are only defined at run time.
-    strategy = instantiate(
+    strategy = server.GPAF(
         cfg.strategy,
         evaluate_fn=evaluate_fn,
         on_fit_config_fn=get_on_fit_config(),
+        on_evaluate_config_fn=lambda rnd: {"round": rnd},  # Pass the round number to clients
     )
 
     # Start simulation

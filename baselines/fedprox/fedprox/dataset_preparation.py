@@ -133,7 +133,7 @@ def _partition_data(
       
       #breasmnist dataset i already deploy it in huggerface
       root_path=os.getcwd()
-      print(f' configuration of my code {root_path}')
+      #print(f' configuration of my code {root_path}')
       trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
       testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
       validset=BreastMnistDataset(root_path,prefix='valid',transform=transform)
