@@ -10,8 +10,23 @@ from torch.utils.data import ConcatDataset, Dataset, Subset, random_split
 from torchvision.datasets import MNIST
 import os
 import torch.utils.data as data
+def build_transform():  
+    t = []
+    t.append(transforms.ToTensor())
+    #t.append(transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4))
+    #t.append(transforms.Grayscale(num_output_channels=1))  # Keep single channel
+    t.append(transforms.RandomHorizontalFlip(p=0.5))
+    t.append(transforms.RandomRotation(degrees=45))
+    #t.append(transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2))
+    t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5))
+    
+  
+    #t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    t.append(transforms.Normalize([0.5], [0.5]))  # For grayscale data
+    return transforms.Compose(t)
 
-#root_path=fedprox-data-breastmnist.npz
+
+
 def makeBreastnistdata(root_path, prefix):
   print(f' root path {root_path}')
   data_path=os.path.join(root_path,'dataset')
@@ -75,10 +90,12 @@ def _download_data() -> Tuple[Dataset, Dataset]:
 def _partition_data(
     num_clients,
     dataset_name,
+    transform,
     iid: Optional[bool] = False,
     power_law: Optional[bool] = True,
     balance: Optional[bool] = False,
     seed: Optional[int] = 42,
+    
 ) -> Tuple[List[Dataset], Dataset]:
     """Split training set into iid or non iid partitions to simulate the federated.
 
@@ -113,8 +130,8 @@ def _partition_data(
       #breasmnist dataset i already deploy it in huggerface
       root_path=os.getcwd()
       print(f' configuration of my code {root_path}')
-      trainset=BreastMnistDataset(root_path,prefix='train')
-      testset=BreastMnistDataset(root_path,prefix='test')
+      trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
+      testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
     else:
       trainset, testset = _download_data()
     if balance:

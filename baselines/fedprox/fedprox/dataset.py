@@ -6,7 +6,7 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, random_split
 
-from fedprox.dataset_preparation import _partition_data
+from fedprox.dataset_preparation import _partition_data,build_transform
 
 
 def load_datasets(  # pylint: disable=too-many-arguments
@@ -39,17 +39,28 @@ def load_datasets(  # pylint: disable=too-many-arguments
         for testing.
     """
     print(f"Dataset partitioning config: {config}")
-    datasets, testset = _partition_data(
+    transform = build_transform()
+    datasets, testset ,validset= _partition_data(
         num_clients,
         config.dataset_name,
+         transform=transform,
         iid=config.iid,
         balance=config.balance,
         power_law=config.power_law,
         seed=seed,
+       
     )
+    print(f' test shape data {testset.shape}')
     # Split each partition into train/val and create DataLoader
     trainloaders = []
     valloaders = []
+    #create data loaders
+    trainloaders=DataLoader(datasets, batch_size=batch_size, shuffle=True))
+    
+    valloaders=DataLoader(validset, batch_size=batch_size)
+    testloaders=DataLoader(testset, batch_size=batch_size)
+    print(f' train loader example {datasets[0]}')
+    '''
     for dataset in datasets:
         len_val = int(len(dataset) / (1 / val_ratio))
         lengths = [len(dataset) - len_val, len_val]
@@ -58,4 +69,5 @@ def load_datasets(  # pylint: disable=too-many-arguments
         )
         trainloaders.append(DataLoader(ds_train, batch_size=batch_size, shuffle=True))
         valloaders.append(DataLoader(ds_val, batch_size=batch_size))
-    return trainloaders, valloaders, DataLoader(testset, batch_size=batch_size)
+    '''
+    return trainloaders, valloaders,testloaders

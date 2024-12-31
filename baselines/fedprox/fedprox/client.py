@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 from typing import Callable, Dict, List, Tuple
-
+from flwr.common import Context
 import flwr as fl
 import numpy as np
 import torch
@@ -10,8 +10,8 @@ from flwr.common.typing import NDArrays, Scalar
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
-
-from fedprox.models import test, train
+from flwr.client import NumPyClient, Client
+from fedprox.models import test, train,train_gpaf,test_gpaf
 
 
 # pylint: disable=too-many-arguments
@@ -29,6 +29,8 @@ class FlowerClient(
         num_epochs: int,
         learning_rate: float,
         straggler_schedule: np.ndarray,
+     partition_id
+
     ):  # pylint: disable=too-many-arguments
         self.net = net
         self.trainloader = trainloader
@@ -36,7 +38,9 @@ class FlowerClient(
         self.device = device
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
-        self.straggler_schedule = straggler_schedule
+        self.straggler_schedule = straggler_schedule,
+        self.client_id=partition_id
+
 
     def get_parameters(self, config: Dict[str, Scalar]) -> NDArrays:
         """Return the parameters of the current net."""
@@ -81,13 +85,14 @@ class FlowerClient(
         else:
             num_epochs = self.num_epochs
 
-        train(
+        train_gpaf(
             self.net,
             self.trainloader,
             self.device,
+            self.client_id,
             epochs=num_epochs,
             learning_rate=self.learning_rate,
-            proximal_mu=float(config["proximal_mu"]),
+           
         )
 
         return self.get_parameters({}), len(self.trainloader), {"is_straggler": False}
@@ -97,7 +102,7 @@ class FlowerClient(
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
         self.set_parameters(parameters)
-        loss, accuracy = test(self.net, self.valloader, self.device)
+        loss, accuracy = test_gpaf(self.net, self.valloader, self.device)
         return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
 
 
@@ -148,12 +153,14 @@ def gen_client_fn(
         )
     )
 
-    def client_fn(cid: str) -> FlowerClient:
-        """Create a Flower client representing a single organization."""
-        # Load model
+    def client_fn(context: Context) -> FlowerClient:
+        # Access the client ID (cid) from the context
+        cid = context.node_config["partition-id"]
+
+        print(f"Client ID: {cid}")
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         net = instantiate(model).to(device)
-
+        
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]
@@ -167,6 +174,8 @@ def gen_client_fn(
             num_epochs,
             learning_rate,
             stragglers_mat[int(cid)],
+            cid
+
         )
 
     return client_fn

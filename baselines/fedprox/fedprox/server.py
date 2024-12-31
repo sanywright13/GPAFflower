@@ -9,7 +9,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from fedprox.models import test
+from fedprox.models import test,test_gpaf
 
 
 def gen_evaluate_fn(
@@ -19,6 +19,7 @@ def gen_evaluate_fn(
 ) -> Callable[
     [int, NDArrays, Dict[str, Scalar]], Optional[Tuple[float, Dict[str, Scalar]]]
 ]:
+    print(f'test in server data {testloader}')
     """Generate the function for centralized evaluation.
 
     Parameters
@@ -51,7 +52,7 @@ def gen_evaluate_fn(
         # negate any potential speedup. Please note this is specific to the model and
         # dataset used in this baseline. In general, compiling the model is worth it
 
-        loss, accuracy = test(net, testloader, device=device)
+        loss, accuracy = test_gpaf(net, testloader, device)
         # return statistics
         return loss, {"accuracy": accuracy}
 
