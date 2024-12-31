@@ -1,9 +1,9 @@
 ---
 
-num_clients: 1000 # total number of clients
-num_epochs: 10 # number of local epochs
+num_clients: 3 # total number of clients
+num_epochs: 3 # number of local epochs
 batch_size: 10
-num_rounds: 100
+num_rounds: 5
 clients_per_round: 10
 stragglers_fraction: 0.9
 learning_rate: 0.03
@@ -16,9 +16,10 @@ client_resources:
 server_device: cpu
 
 dataset_config:
-  iid: false
+  iid: true
   balance: false
   power_law: true
+  dataset_name: breastmnist
 
 fit_config:
   drop_client: false # with FedProx, clients shouldn't be dropped even if they are stragglers

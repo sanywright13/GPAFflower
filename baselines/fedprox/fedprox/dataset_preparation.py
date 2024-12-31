@@ -1,3 +1,4 @@
+
 """Functions for dataset download and processing."""
 
 from typing import List, Optional, Tuple
@@ -7,7 +8,52 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import ConcatDataset, Dataset, Subset, random_split
 from torchvision.datasets import MNIST
+import os
+import torch.utils.data as data
 
+#root_path=fedprox-data-breastmnist.npz
+def makeBreastnistdata(root_path, prefix):
+  print(f' root path {root_path}')
+  data_path=os.path.join(root_path,'dataset')
+  medmnist_data=os.path.join(data_path,'breastmnist.npz')
+  print(f'dataset path: {medmnist_data}')
+  data=np.load(medmnist_data)
+  if prefix=='train':
+    train_data=data['train_images']
+    train_label=data['train_labels']
+    print(f'train_data shape:{train_data.shape}')
+    return train_data , train_label
+  else:
+    val_data=data['test_images']
+    val_label=data['test_labels']
+    print( f'test data shape {val_data.shape}')
+    return val_data , val_label
+#we define the data partitions of heterogeneity and domain shift
+#then the purpose of this code is split a dataset among a number of clients and choose the way of spliting if it is iid or no iid etc
+class BreastMnistDataset(data.Dataset):
+      
+    def __init__(self,root,prefix, transform=None):
+      data,labels= makeBreastnistdata(root, prefix='train')
+      self.data=data
+      self.labels  = labels  
+   
+      self.transform = transform
+    def __len__(self):
+        self.filelength = len(self.labels)
+        return self.filelength
+
+    def __getitem__(self, idx):
+        #print(f'data : {self.data[idx]}')
+        image =self.data[idx]
+        label = self.labels[idx]
+        if self.transform:
+            image = self.transform(image)
+        
+        return image, label
+    @property
+    def targets(self):
+        self.labels = np.squeeze(self.labels)
+        return self.labels
 
 def _download_data() -> Tuple[Dataset, Dataset]:
     """Download (if necessary) and returns the MNIST dataset.
@@ -28,6 +74,7 @@ def _download_data() -> Tuple[Dataset, Dataset]:
 # pylint: disable=too-many-locals
 def _partition_data(
     num_clients,
+    dataset_name,
     iid: Optional[bool] = False,
     power_law: Optional[bool] = True,
     balance: Optional[bool] = False,
@@ -61,12 +108,29 @@ def _partition_data(
         A list of dataset for each client and a single dataset to be use for testing
         the model.
     """
-    trainset, testset = _download_data()
+    if dataset_name=='breastmnist':
+      
+      #breasmnist dataset i already deploy it in huggerface
+      root_path=os.getcwd()
+      print(f' configuration of my code {root_path}')
+      trainset=BreastMnistDataset(root_path,prefix='train')
+      testset=BreastMnistDataset(root_path,prefix='test')
+    else:
+      trainset, testset = _download_data()
+    if balance:
+        trainset = _balance_classes(trainset, seed)
+
+    partition_size = int(len(trainset) / num_clients)
+    print(f' par {partition_size} and len of train is {len(trainset)}')
+    lengths = [partition_size] * num_clients
+
+    
 
     if balance:
         trainset = _balance_classes(trainset, seed)
 
     partition_size = int(len(trainset) / num_clients)
+    print(f' par {partition_size} and len of train is {len(trainset)}')
     lengths = [partition_size] * num_clients
 
     if iid:

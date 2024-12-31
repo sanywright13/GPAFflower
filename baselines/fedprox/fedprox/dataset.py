@@ -41,6 +41,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
     print(f"Dataset partitioning config: {config}")
     datasets, testset = _partition_data(
         num_clients,
+        config.dataset_name,
         iid=config.iid,
         balance=config.balance,
         power_law=config.power_law,
