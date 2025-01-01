@@ -14,17 +14,25 @@ from flwr.client import NumPyClient, Client
 from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,CombinedModel,Discriminator,StochasticGenerator
 
 class FederatedClient(fl.client.NumPyClient):
-    def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator, data):
+    def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
+    model,
+     data,validset,
+     local_epochs,
+     client_id):
         self.encoder = encoder
         self.classifier = classifier
         self.discriminator = discriminator
-        self.data = data
+        self.traindata = data
+        self.validdata=validset
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+        self.local_epochs=local_epochs
+        self.client_id=client_id
+        self.model=model
         # Move models to device
         self.encoder.to(self.device)
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
+        self.model.to(self.device)
         
         # Initialize optimizers
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
@@ -72,9 +80,9 @@ class FederatedClient(fl.client.NumPyClient):
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
         self.set_parameters(parameters)
-        loss, accuracy = test_gpaf(self.net, self.valloader, self.device)
+        loss, accuracy = test_gpaf(self.model, self.validdata, self.device)
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
-        return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+        return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
 
     def fit(self, parameters, config):
         """Train local models using latest generator state."""
@@ -100,7 +108,8 @@ class FederatedClient(fl.client.NumPyClient):
         
         # Training loop
         # Rest of training loop... call  train function
-
+        test_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs)
+        '''
         for epoch in range(config["local_epochs"]):
             for batch in self._get_train_batches():
                 x, y = batch
@@ -110,7 +119,7 @@ class FederatedClient(fl.client.NumPyClient):
                 with torch.no_grad():  # Don't compute gradients for generator
                     z = self.generator(torch.randn_like(x), y)
                     
-        
+        '''
         return self.get_parameters(), len(self.data), {}
 
 
@@ -179,21 +188,20 @@ def gen_client_fn(
         encoder = Encoder(input_dim, hidden_dim, latent_dim).to(device)
         classifier = Classifier(latent_dim, num_classes).to(device)
         discriminator = Discriminator(latent_dim=64, num_domains=3).to(device)
-        model = CombinedModel(encoder, classifier).to(device)
+        model = CombinedModel(encoder, classifier,discriminator).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]
         valloader = valloaders[int(cid)]
-
+        num_epochs=1
         return FederatedClient(
             encoder,
             classifier,
+            discriminator,
+            model,
             trainloader,
             valloader,
-            device,
             num_epochs,
-            learning_rate,
-           # stragglers_mat[int(cid)],
             cid
 
         )

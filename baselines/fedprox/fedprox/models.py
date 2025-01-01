@@ -178,13 +178,18 @@ def train(  # pylint: disable=too-many-arguments
             net, global_params, trainloader, device, criterion, optimizer, proximal_mu
         )
 
-def train_gpaf( net: nn.Module,
+def train_gpaf( encoder: nn.Module,
+classifier,
+discriminator,
     trainloader: DataLoader,
     device: torch.device,
     client_id,
     epochs: int,
-    learning_rate: float,):
-#
+    ):
+
+# 
+    learning_rate=0.01
+
     global_params = [val.detach().clone() for val in net.parameters()]
     
     net = train_one_epoch_gpaf(

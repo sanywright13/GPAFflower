@@ -5,12 +5,12 @@ from typing import Callable, Dict, Optional, Tuple
 import flwr
 import mlflow
 import torch
-from typing import List, Tuple, Optional, Dict, Callable
+from typing import List, Tuple, Optional, Dict, Callable, Union
 from flwr.common.typing import NDArrays, Scalar
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
-from flwr.server.strategy import Strategy
+from flwr.server.strategy import Strategy,FedAvg
 from fedprox.models import test,test_gpaf ,StochasticGenerator
 from flwr.server.client_proxy import ClientProxy
 import torch.nn as nn
@@ -30,7 +30,7 @@ from flwr.common import (
     parameters_to_ndarrays,
 )
 
-class GPAFStrategy(Strategy):
+class GPAFStrategy(FedAvg):
     def __init__(
         self,
         num_classes: int=2,
@@ -46,7 +46,45 @@ class GPAFStrategy(Strategy):
         
         # Store client models for ensemble predictions
         self.client_classifiers = {}
-        
+    def initialize_parameters(
+        self, client_manager: ClientManager
+    ) -> Optional[Parameters]:
+        """Initialize global model parameters."""
+        return self.initial_parameters
+
+    def num_evaluate_clients(self, client_manager: ClientManager) -> Tuple[int, int]:
+      """Return the sample size and required number of clients for evaluation."""
+      num_clients = client_manager.num_available()
+      return max(int(num_clients * self.fraction_evaluate), self.min_evaluate_clients), self.min_available_clients
+    
+    def configure_evaluate(
+      self, server_round: int, parameters: Parameters, client_manager: ClientManager
+) -> List[Tuple[ClientProxy, EvaluateIns]]:
+      """Configure the next round of evaluation."""
+      # Sample clients
+      sample_size, min_num_clients = self.num_evaluate_clients(client_manager)
+      clients = client_manager.sample(
+        num_clients=sample_size, min_num_clients=min_num_clients
+    )
+
+      # Create EvaluateIns for each client
+      evaluate_config = (
+        self.on_evaluate_config_fn(server_round) if self.on_evaluate_config_fn is not None else {}
+      )
+      evaluate_ins = EvaluateIns(parameters, evaluate_config)
+
+      # Return client-EvaluateIns pairs
+      return [(client, evaluate_ins) for client in clients]   
+    
+    def aggregate_evaluate(
+      self, server_round: int, results: List[Tuple[ClientProxy, EvaluateRes]], failures: List[BaseException]
+) -> Tuple[Optional[float], Dict[str, Scalar]]:
+      """Aggregate evaluation results."""
+      if not results:
+        return None, {}
+      else:
+        pass
+
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: flwr.server.client_manager.ClientManager
     ) -> List[Tuple[ClientProxy, flwr.common.FitIns]]:
@@ -75,7 +113,7 @@ class GPAFStrategy(Strategy):
         # Create fit instructions with current parameters and config
         fit_ins = []
         for client in client_proxies:
-            fit_ins.append((client, fl.common.FitIns(parameters, config)))
+            fit_ins.append((client, flwr.common.FitIns(parameters, config)))
             
         return fit_ins
 
@@ -83,6 +121,7 @@ class GPAFStrategy(Strategy):
         self,
         server_round: int,
         results: List[Tuple[ClientProxy, flwr.common.FitRes]],
+                failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate results and update generator."""
         if not results:
@@ -108,12 +147,15 @@ class GPAFStrategy(Strategy):
         """Train the generator using the ensemble of client classifiers."""
         
         # Sample a label y from the estimated global label distribution
+        #modify
         y = np.random.randint(0, self.num_classes)
 
         # Sample a noise vector ε
+        #modify
         noise = torch.randn(1, 100)  # Assuming the generator takes 100-dimensional noise
 
         # Generate a latent representation z using the generator
+        #modify
         z = self.generator(noise, torch.tensor([y]))
 
         # Compute logits for each client

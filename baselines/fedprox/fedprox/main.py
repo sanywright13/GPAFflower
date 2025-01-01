@@ -110,6 +110,7 @@ def main(cfg: DictConfig) -> None:
     save_results_as_pickle(history, file_path=save_path, extra_results={})
 
     # plot results and include them in the readme
+    '''
     strategy_name = strategy.__class__.__name__
     file_suffix: str = (
         f"_{strategy_name}"
@@ -129,7 +130,7 @@ def main(cfg: DictConfig) -> None:
         save_path,
         (file_suffix),
     )
-
+    '''
 
 if __name__ == "__main__":
     main()
