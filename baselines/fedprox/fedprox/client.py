@@ -11,7 +11,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.client import NumPyClient, Client
-from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,GPAF,Discriminator
+from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,CombinedModel,Discriminator
 
 
 # pylint: disable=too-many-arguments
@@ -198,7 +198,7 @@ def gen_client_fn(
         encoder = Encoder(input_dim, hidden_dim, latent_dim).to(device)
         classifier = Classifier(latent_dim, num_classes).to(device)
         discriminator = Discriminator(latent_dim=64, num_domains=3).to(device)
-        model = GPAF(encoder, classifier).to(device)
+        model = CombinedModel(encoder, classifier).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]

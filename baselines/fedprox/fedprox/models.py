@@ -41,7 +41,7 @@ class Discriminator(nn.Module):
     def forward(self, x):
         return self.fc1(x)
 
-class GPAF(nn.Module):
+class CombinedModel(nn.Module):
     def __init__(self, encoder: nn.Module, classifier: nn.Module, discriminator: nn.Module):
         super().__init__()
         self.encoder = encoder

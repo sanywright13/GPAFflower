@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Callable, Dict, Optional, Tuple
 import mlflow
 import torch
+from typing import List, Tuple, Optional, Dict, Callable
 from flwr.common.typing import NDArrays, Scalar
 from hydra.utils import instantiate
 from omegaconf import DictConfig
@@ -29,7 +30,7 @@ from flwr.common import (
 #here i will implement my strategy
 
 
-class CustomFedAvgWithGenerator(Strategy):
+class GPAF(Strategy):
     def __init__(
         self,
         generator: nn.Module,
