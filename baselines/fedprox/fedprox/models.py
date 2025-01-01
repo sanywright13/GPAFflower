@@ -15,6 +15,47 @@ from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.swin_transformer import SwinTransformer
+def get_model():
+    layernorm = nn.LayerNorm
+    USE_CHECKPOINT=False
+    FUSED_WINDOW_PROCESS=False
+    IMG_SIZE=28
+    IN_CHANS=1
+    NUM_CLASSES=2
+    DEPTHS= [4,6]
+    NUM_HEADS=[12,24]
+    WINDOW_SIZE=7
+    MLP_RATIO=4
+    PATCH_SIZE=2
+    EMBED_DIM=96
+    QKV_BIAS=True
+    QK_SCALE=None
+    DROP_RATE=0.1
+    DROP_PATH_RATE=0.2
+    APE=False
+    PATCH_NORM=True
+    model = SwinTransformer(img_size=IMG_SIZE,
+                                patch_size=PATCH_SIZE,
+                                in_chans=IN_CHANS,
+                                num_classes=NUM_CLASSES,
+                                embed_dim=EMBED_DIM,
+                                depths=DEPTHS,
+                                num_heads=NUM_HEADS,
+                                window_size=WINDOW_SIZE,
+                                mlp_ratio=MLP_RATIO,
+                                qkv_bias=QKV_BIAS,
+                                qk_scale=QK_SCALE,
+                                drop_rate=DROP_RATE,
+                                drop_path_rate=DROP_PATH_RATE,
+                                ape=APE,
+                                norm_layer=layernorm,
+                                patch_norm=PATCH_NORM,
+                                use_checkpoint=USE_CHECKPOINT,
+                                fused_window_process=FUSED_WINDOW_PROCESS)
+
+    return model
+
 
 class StochasticGenerator(nn.Module):
     def __init__(self, latent_dim, num_classes, hidden_dim=256):
@@ -200,7 +241,13 @@ discriminator,
 def test_gpaf(net, testloader,DEVICE):
     """Evaluate the network on the entire test set."""
     criterion = torch.nn.CrossEntropyLoss()
+
+    # Initialize the ``BCELoss`` function
+    criterion_1 = nn.BCELoss()
     correct, total, loss = 0, 0, 0.0
+    # Setup Adam optimizers for both G and D
+    optimizerEn = torch.optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
+    optimizerDis = torch.optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
     net.eval()
     with torch.no_grad():
         for batch in testloader:
@@ -219,14 +266,17 @@ def test_gpaf(net, testloader,DEVICE):
 
     return loss, accuracy
 
-def train_one_epoch_gpaf(model, global_params,trainloader, DEVICE,client_id, epochs,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainloader, DEVICE,client_id, epochs,verbose=False):
     """Train the network on the training set."""
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
-    optimizer = torch.optim.Adam(net.parameters(),lr=lr,weight_decay=1e-4)
-    criterion_cls = nn.CrossEntropyLoss()  # Classification loss
-    criterion_disc = nn.CrossEntropyLoss()  # Discriminator loss
-    model.train()
+    
+     # Separate optimizers
+    discriminator_optimizer = torch.optim.Adam(discriminator.parameters())
+    # Combined optimizer for encoder and classifier
+    main_optimizer = torch.optim.Adam(list(encoder.parameters()) + 
+                                        list(classifier.parameters()))
+        
     for epoch in range(epochs):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
