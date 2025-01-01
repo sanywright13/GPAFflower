@@ -11,38 +11,29 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.client import NumPyClient, Client
-from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,CombinedModel,Discriminator
+from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,CombinedModel,Discriminator,StochasticGenerator
 
-
-# pylint: disable=too-many-arguments
-class FlowerClient(
-    fl.client.NumPyClient
-):  # pylint: disable=too-many-instance-attributes
-    """Standard Flower client for CNN training."""
-
-    def __init__(
-        self,
-        model: torch.nn.Module,
-        trainloader: DataLoader,
-        valloader: DataLoader,
-        device: torch.device,
-        num_epochs: int,
-        learning_rate: float,
-        #straggler_schedule: np.ndarray,
-     partition_id
-
-    ):  # pylint: disable=too-many-arguments
-        #self.net = net
-        self.model = model
-        self.trainloader = trainloader
-        self.valloader = valloader
-        self.device = device
-        self.num_epochs = num_epochs
-        self.learning_rate = learning_rate
-        #self.straggler_schedule = straggler_schedule,
-        self.client_id=partition_id
-
-
+class FederatedClient(fl.client.NumPyClient):
+    def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator, data):
+        self.encoder = encoder
+        self.classifier = classifier
+        self.discriminator = discriminator
+        self.data = data
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Move models to device
+        self.encoder.to(self.device)
+        self.classifier.to(self.device)
+        self.discriminator.to(self.device)
+        
+        # Initialize optimizers
+        self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
+        self.optimizer_classifier = torch.optim.Adam(self.classifier.parameters())
+        self.optimizer_discriminator = torch.optim.Adam(self.discriminator.parameters())
+        
+        # Generator will be updated from server state
+        self.generator = None
+    
     def get_parameters(self, config: Dict[str, Scalar]) -> NDArrays:
         """Return the parameters of the current net.
         return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
@@ -77,53 +68,6 @@ class FlowerClient(
 
         self.encoder.load_state_dict(encoder_state_dict, strict=True)
         self.classifier.load_state_dict(classifier_state_dict, strict=True)
-
-    def fit(
-        self, parameters: NDArrays, config: Dict[str, Scalar]
-    ) -> Tuple[NDArrays, int, Dict]:
-        """Implement distributed fit function for a given client."""
-        self.set_parameters(parameters)
-
-        # At each round check if the client is a straggler,
-        # if so, train less epochs (to simulate partial work)
-        # if the client is told to be dropped (e.g. because not using
-        # FedProx in the server), the fit method returns without doing
-        # training.
-        # This method always returns via the metrics (last argument being
-        # returned) whether the client is a straggler or not. This info
-        # is used by strategies other than FedProx to discard the update.
-        '''
-        if (
-            self.straggler_schedule[int(config["curr_round"]) - 1]
-            and self.num_epochs > 1
-        ):
-            num_epochs = np.random.randint(1, self.num_epochs)
-            
-            if config["drop_client"]:
-                # return without doing any training.
-                # The flag in the metric will be used to tell the strategy
-                # to discard the model upon aggregation
-                return (
-                    self.get_parameters({}),
-                    len(self.trainloader),
-                    {"is_straggler": True},
-                )
-        '''
-        #else:
-        num_epochs = self.num_epochs
-
-        train_gpaf(
-            self.net,
-            self.trainloader,
-            self.device,
-            self.client_id,
-            epochs=num_epochs,
-            learning_rate=self.learning_rate,
-           
-        )
-
-        return self.get_parameters({}), len(self.trainloader), {"is_straggler": False}
-
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
@@ -131,6 +75,43 @@ class FlowerClient(
         loss, accuracy = test_gpaf(self.net, self.valloader, self.device)
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+
+    def fit(self, parameters, config):
+        """Train local models using latest generator state."""
+        # Update local models with global parameters
+        self._update_local_models(parameters)
+        
+        # Update generator with latest state from server
+        generator_state = config["generator_state"]
+        if self.generator is None:
+            # First round: initialize generator
+            self.generator = StochasticGenerator(
+                latent_dim=config.get("latent_dim", 100),
+                num_classes=config.get("num_classes", 10)
+            ).to(self.device)
+            
+        # Load latest generator state
+        generator_state_dict = {
+            k: torch.tensor(v).to(self.device)
+            for k, v in generator_state.items()
+        }
+        self.generator.load_state_dict(generator_state_dict)
+        self.generator.eval()  # Always in eval mode on clients
+        
+        # Training loop
+        # Rest of training loop... call  train function
+
+        for epoch in range(config["local_epochs"]):
+            for batch in self._get_train_batches():
+                x, y = batch
+                x, y = x.to(self.device), y.to(self.device)
+                
+                # Use updated generator for training
+                with torch.no_grad():  # Don't compute gradients for generator
+                    z = self.generator(torch.randn_like(x), y)
+                    
+        
+        return self.get_parameters(), len(self.data), {}
 
 
 def gen_client_fn(
@@ -142,7 +123,7 @@ def gen_client_fn(
     learning_rate: float,
     stragglers: float,
     model: DictConfig,
-) -> Callable[[str], FlowerClient]:  # pylint: disable=too-many-arguments
+) -> Callable[[str], FederatedClient]:  # pylint: disable=too-many-arguments
     """Generate the client function that creates the Flower Clients.
 
     Parameters
@@ -204,9 +185,9 @@ def gen_client_fn(
         trainloader = trainloaders[int(cid)]
         valloader = valloaders[int(cid)]
 
-        return FlowerClient(
-            model,
-            
+        return FederatedClient(
+            encoder,
+            classifier,
             trainloader,
             valloader,
             device,

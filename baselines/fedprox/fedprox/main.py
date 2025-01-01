@@ -11,7 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 from fedprox import client, server, utils
 from fedprox.dataset import load_datasets
 from fedprox.utils import save_results_as_pickle
-
+#from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
 
 
@@ -66,11 +66,22 @@ def main(cfg: DictConfig) -> None:
 
     # instantiate strategy according to config. Here we pass other arguments
     # that are only defined at run time.
-    strategy = server.GPAF(
-        cfg.strategy,
+
+
+    # Initialize parameters
+    num_clients = 10
+    num_rounds = 100
+    feature_dim = 256
+    num_classes = 10
+    latent_dim = 100
+    
+    # Initialize generator in main
+    #generator = Generator(latent_dim, num_classes)
+    strategy = server.GPAFStrategy(
+        #cfg.strategy,
         #evaluate_fn=evaluate_fn,
-        on_fit_config_fn=get_on_fit_config(),
-        on_evaluate_config_fn=lambda rnd: {"round": rnd},  # Pass the round number to clients
+        #on_fit_config_fn=get_on_fit_config(),
+        #on_evaluate_config_fn=lambda rnd: {"round": rnd},  # Pass the round number to clients
     )
 
     # Start simulation

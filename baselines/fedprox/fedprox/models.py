@@ -8,6 +8,42 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.utils.data import DataLoader
 
+#GLOBAL Generator 
+
+# use a Generator Network with reparametrization trick
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class StochasticGenerator(nn.Module):
+    def __init__(self, latent_dim, num_classes, hidden_dim=256):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.label_embedding = nn.Embedding(num_classes, latent_dim)
+        
+        # Fully connected layers to create the generator network
+        self.fc1 = nn.Linear(latent_dim * 2, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, latent_dim)
+        
+    def forward(self, z, labels):
+        label_embedding = self.label_embedding(labels)
+        z = torch.cat([z, label_embedding], dim=1)
+        
+        h = F.relu(self.fc1(z))
+        h = F.relu(self.fc2(h))
+        z_mu = self.fc3(h)  # Output mean of the Gaussian distribution
+        z_logvar = torch.zeros_like(z_mu)  # Assuming unit variance for simplicity
+        
+        # Reparameterization trick
+        std = torch.exp(0.5 * z_logvar)  # Compute std from log variance
+        eps = torch.randn_like(std)  # Sample from a normal distribution
+        z_sample = z_mu + eps * std  # Sample latent vector z
+        
+        return z_sample
+
+
 #a simple encoder and classifier implementation
 class Encoder(nn.Module):
     """Encoder network for feature extraction."""
