@@ -327,30 +327,68 @@ def test_gpaf(net, testloader,DEVICE):
 
     return loss, accuracy
 
-def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainloader, DEVICE,client_id, epochs,z_global,verbose=False):
+
+#we must add a classifier that classifier into a binary categories
+#send back the classifier parameter to the server
+def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainloader, DEVICE,client_id, epochs,global_z,verbose=False):
     """Train the network on the training set."""
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
     
-     # Separate optimizers
-    discriminator_optimizer = torch.optim.Adam(discriminator.parameters())
-    # Combined optimizer for encoder and classifier
-    main_optimizer = torch.optim.Adam(list(encoder.parameters()) + 
-                                        list(classifier.parameters()))
-    #modify the train client
-    # send classifier parameters to compute global generator loss
-    #visualize the z represnetation in each round.  
-    #can we say that these z representation enhance. alittle the local learning? ecepecially when there is a label shift in clients?  
+     
+    optimizer_E = torch.optim.Adam(encoder.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    criterion = nn.BCELoss()  # Binary cross-entropy loss
     for epoch in range(epochs):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
             images, labels = batch
             images, labels = images.to(DEVICE), labels.to(DEVICE)
+            real_imgs = images.to(DEVICE)
           
-            
+            # ---------------------
+            # Train Discriminator
+            # ---------------------
+            optimizer_D.zero_grad()
+
+            # Real loss: Discriminator should classify global z as 1
+            if global_z is not None:
+                    real_labels = torch.ones(global_z.size(0), 1, device=DEVICE)  # Real labels
+                    real_loss = criterion(discriminator(global_z), real_labels)
+            else:
+                    real_loss = 0
+
+            # Fake loss: Discriminator should classify local features as 0
+            local_features = encoder(real_imgs)
+            fake_labels = torch.zeros(real_imgs.size(0), 1, device=DEVICE)  # Fake labels
+            fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
             #images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            
+            # Fake loss: Discriminator should classify local features as 0
+            local_features = encoder(real_imgs)
+            fake_labels = torch.zeros(real_imgs.size(0), 1)  # Fake labels
+            fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
+
+            # Total discriminator loss
+            d_loss = 0.5 * (real_loss + fake_loss)
+            d_loss.backward()
+            optimizer_D.step()
+
+            # -----------------
+            # Train Generator
+            # -----------------
+            optimizer_E.zero_grad()
+
+            # Generator loss: Generator should fool the discriminator
+            
+            g_loss = criterion(discriminator(local_features), real_labels)
+            g_loss.backward()
+            optimizer_E.step()
+
+            #Classification loss with label
             labels=labels.squeeze(1)
             #print(labels)
+            '''
             optimizer.zero_grad()
             outputs = model(images)
             #we compute two losses discriminator and classification loss
@@ -364,9 +402,11 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainlo
             epoch_loss += total_loss
             total += labels.size(0)
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+            '''
         epoch_loss /= len(trainloader.dataset)
         epoch_acc = correct / total
         print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
+
 
 
 def _train_one_epoch(  # pylint: disable=too-many-arguments
