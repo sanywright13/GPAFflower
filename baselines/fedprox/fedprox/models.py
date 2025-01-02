@@ -338,7 +338,9 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainlo
      
     optimizer_E = torch.optim.Adam(encoder.parameters(), lr=0.0002, betas=(0.5, 0.999))
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    optimizer_C = torch.optim.Adam(classifier.parameters(), lr=0.0002, betas=(0.5, 0.999))
     criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion_cls = nn.CrossEntropyLoss()  # Classification loss (for binary classification)
     for epoch in range(epochs):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
@@ -387,26 +389,29 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainlo
 
             #Classification loss with label
             labels=labels.squeeze(1)
-            #print(labels)
-            '''
-            optimizer.zero_grad()
-            outputs = model(images)
-            #we compute two losses discriminator and classification loss
-            loss_cls = criterion_cls(outputs, labels)  # Classification loss
-            loss_disc = criterion_disc(outputs, client_id)  # Discriminator loss
-            total_loss = loss_cls + loss_disc  # Combined loss
-            #loss = criterion(outputs, labels)
-            total_loss.backward()
-            optimizer.step()
-            # Metrics
-            epoch_loss += total_loss
+
+            # -----------------
+            # Train Classifier
+            # -----------------
+            optimizer_C.zero_grad()
+
+            # Classification loss
+            logits = classifier(local_features.detach())  # Detach to avoid affecting encoder
+            cls_loss = criterion_cls(logits, labels)
+            cls_loss.backward()
+            optimizer_C.step()
+
+            # Compute accuracy
+            _, predicted = torch.max(logits.data, 1)
             total += labels.size(0)
-            correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-            '''
+            correct += (predicted == labels).sum().item()
+
+            #print(labels)
+            
         epoch_loss /= len(trainloader.dataset)
         epoch_acc = correct / total
-        print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
-
+        print(f"Epoch {epoch+1}: Loss = {epoch_loss:.4f}, Accuracy = {epoch_acc:.4f} (Client {client_id})")
+        #print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
 
 
 def _train_one_epoch(  # pylint: disable=too-many-arguments
