@@ -155,8 +155,23 @@ class GPAFStrategy(FedAvg):
             return None, {}
 
         print(f'results format {results}')    
-        # Update generator using client results
         
+        #get the clients encoder and classifier parameters
+
+        # Extract parameters from each client
+        client_parameters = []
+        for client, fit_res in results:
+          parameters = parameters_to_ndarrays(fit_res.parameters)  # Convert Parameters to NDArrays
+          client_parameters.append(parameters)
+
+        # Example: Access encoder and classifier parameters for the first client
+        first_client_params = client_parameters[0]
+        num_encoder_params = len(self.encoder.state_dict().keys())
+        encoder_params = first_client_params[:num_encoder_params]
+        classifier_params = first_client_params[num_encoder_params:]
+
+        print("Encoder parameters shape:", [p.shape for p in encoder_params])
+        print("Classifier parameters shape:", [p.shape for p in classifier_params])
         #get the label distribution
         # Aggregate label counts
         global_label_counts = {}
@@ -178,7 +193,7 @@ class GPAFStrategy(FedAvg):
         
         print(f'label distribution {self.label_probs}')
         # Aggregate other parameters
-        aggregated_params = self._aggregate_parameters(results)
+        aggregated_params = self._aggregate_parameters(client_parameters)
         
         return aggregated_params, {}
     def evaluate(

@@ -43,10 +43,12 @@ class FederatedClient(fl.client.NumPyClient):
         self.generator = None
     
     def get_parameters(self, config: Dict[str, Scalar]) -> NDArrays:
-        """Return the parameters of the current net.
+        """Return the parameters of the current encoder and classifier to the server.
         return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
         """
-        """Return the parameters of the encoder and classifier."""
+        """Return the parameters of the encoder and classifier.
+        we access to these local parameters in aggregate_fit function
+        """
         return [
             val.cpu().numpy() for _, val in self.encoder.state_dict().items()
         ] + [
@@ -54,12 +56,7 @@ class FederatedClient(fl.client.NumPyClient):
         ]
 
     def set_parameters(self, parameters: NDArrays) -> None:
-        """Change the parameters of the model using the given ones.
-        #Combines the keys of the state dictionary with the new parameter values into a list of key-value pairs.
-        params_dict = zip(self.net.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
-        self.net.load_state_dict(state_dict, strict=True)
-"""
+      
         """Set the parameters of the encoder and classifier."""
         print("Parameters structure:")
         for i, param in enumerate(parameters):
