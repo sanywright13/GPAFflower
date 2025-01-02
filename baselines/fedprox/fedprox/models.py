@@ -11,11 +11,11 @@ from torch.autograd import Variable
 #GLOBAL Generator 
 
 # use a Generator Network with reparametrization trick
-import np
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.swin_transformer import SwinTransformer
+#from models.swin_transformer import SwinTransformer
 '''
 def get_model():
     layernorm = nn.LayerNorm
