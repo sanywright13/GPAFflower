@@ -11,7 +11,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
+from fedprox.models import Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
 from flwr.server.client_proxy import ClientProxy
 import torch.nn as nn
 import torch.nn.functional as F
@@ -189,7 +189,7 @@ class GPAFStrategy(FedAvg):
         
         # Store the global label distribution for later use
         self.label_probs = label_probs
-        self._train_generator(self.label_probs,results)
+        self._train_generator(self.label_probs,classifier_params)
         
         print(f'label distribution {self.label_probs}')
         # Aggregate other parameters
@@ -203,8 +203,16 @@ class GPAFStrategy(FedAvg):
 
         # Let's assume we won't perform the global model evaluation on the server side.
         return None
-    
-    def _train_generator(self,label_probs, results: List[Tuple[ClientProxy, flwr.common.FitRes]]):
+
+    def _create_client_model(self, classifier_params: NDArrays) -> nn.Module:
+        """Create a client classifier model from parameters."""
+        classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
+        classifier_state_dict = OrderedDict({
+            k: torch.tensor(v) for k, v in zip(classifier.state_dict().keys(), classifier_params)
+        })
+        classifier.load_state_dict(classifier_state_dict, strict=True)
+        return classifier
+    def _train_generator(self,label_probs, classifier_params:  List[NDArrays]):
         """Train the generator using the ensemble of client classifiers."""
         # Sample labels from the global distribution
         # Loss criterion
@@ -237,20 +245,17 @@ class GPAFStrategy(FedAvg):
         # Compute logits from the ensemble of predictors
         #logits = torch.stack([predictor(z) for predictor in predictors], dim=0)
         #avg_logits = torch.mean(logits, dim=0)
-        
-       
-    
+
         # Compute logits for each client
-        #get the client predictors classifiers
+        
+        # Get logits from client classifiers
         logits = []
-        for _, fit_res in results:
-            client_weights = parameters_to_ndarrays(fit_res.parameters)
-            client_model = self._create_client_model(client_weights)
-            logits.append(client_model(z))
+        for classifier_params in classifier_params:
+          client_model = self._create_client_model(classifier_params)  # Create client model from parameters
+          logits.append(client_model(z))
 
         # Average the logits from all clients
         avg_logits = torch.mean(torch.stack(logits), dim=0)
-
         # Compute cross-entropy loss
         loss = criterion(avg_logits, labels_one_hot.argmax(dim=1))  # Use argmax to get class indices        
         # Add auxiliary loss (entropy-based or any regularization)

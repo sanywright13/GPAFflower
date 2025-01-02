@@ -185,7 +185,7 @@ def gen_client_fn(
         num_classes = 2  # Example: MNIST has 10 classes
  
         encoder = Encoder(input_dim, hidden_dim, latent_dim).to(device)
-        classifier = Classifier(latent_dim, num_classes).to(device)
+        classifier = Classifier(latent_dim=64, num_classes=2).to(device)
         discriminator = Discriminator(latent_dim=64, num_domains=3).to(device)
         model = CombinedModel(encoder, classifier,discriminator).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
