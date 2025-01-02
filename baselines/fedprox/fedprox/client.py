@@ -93,26 +93,21 @@ class FederatedClient(fl.client.NumPyClient):
         
         # Convert label counts to a format that can be sent to the server
         label_counts_dict = dict(label_counts)
-        # Update generator with latest state from server
-        generator_state = config["generator_state"]
-        if self.generator is None:
-            # First round: initialize generator
-            self.generator = StochasticGenerator(
-                latent_dim=config.get("latent_dim", 100),
-                num_classes=config.get("num_classes", 10)
-            ).to(self.device)
-            
-        # Load latest generator state
-        generator_state_dict = {
-            k: torch.tensor(v).to(self.device)
-            for k, v in generator_state.items()
-        }
-        self.generator.load_state_dict(generator_state_dict)
-        self.generator.eval()  # Always in eval mode on clients
         
+        #get the global representation 
+        # Access the global z representation from the config
+        z_representation = config.get("z_representation", None)
+
+        if z_representation is not None:
+            # Convert z representation from list to numpy array and then to PyTorch tensor
+            self.z = torch.tensor(z_representation, dtype=torch.float32).to(self.device)
+        else:
+            print("Warning: No z representation provided in config.")
+            self.z = None
+
         # Training loop
         # Rest of training loop... call  train function
-        test_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs)
+        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.z)
         '''
 
         for epoch in range(config["local_epochs"]):

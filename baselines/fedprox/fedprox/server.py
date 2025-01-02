@@ -89,34 +89,60 @@ class GPAFStrategy(FedAvg):
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: flwr.server.client_manager.ClientManager
     ) -> List[Tuple[ClientProxy, flwr.common.FitIns]]:
-        """Configure the next round of training and send current generator state."""
+      """Configure the next round of training and send current generator state."""
         
-        # Get current generator state dict
-        generator_state_dict = {
-            k: v.cpu().numpy() 
-            for k, v in self.generator.state_dict().items()
-        }
+      # Aggregate label counts
+      global_label_counts = {}
+      for _, fit_res in results:
+            client_label_counts = fit_res.metrics.get("label_counts", {})
+            for label, count in client_label_counts.items():
+                if label in global_label_counts:
+                    global_label_counts[label] += count
+                else:
+                    global_label_counts[label] = count
         
-        # Include generator state in config
-        config = {
-            "server_round": server_round,
-            "generator_state": generator_state_dict,  # Send updated generator state
-            "local_epochs": 5,
-            "batch_size": 32,
-        }
+      # Compute global label distribution
+      total_samples = sum(global_label_counts.values())
+      # Store the global label distribution for later use
+
+      self.label_probs = {label: count / total_samples for label, count in global_label_counts.items()}
         
-        # Sample clients for this round
-        client_proxies = client_manager.sample(
+      # Sample labels and convert to one-hot encoding
+      labels = sample_labels(batch_size, self.label_probs)
+      labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
+      # Generate z representation using the generator
+      batch_size = 16 # Example batch size
+      noise_dim = self.generator.noise_dim  # Noise dimension
+      label_dim = self.generator.label_dim  # Label dimension
+      # Sample noise using the reparameterization trick
+      mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
+      logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
+      noise = reparameterize(mu, logvar)  # Reparameterized noise
+    
+      # Generate z representation
+      z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
+    
+      # Include z representation in config
+      config = {
+        "server_round": server_round,
+        "z_representation": z.tolist(),  # Send z representation
+        "local_epochs": 5,
+        "batch_size": 32,
+      }
+    
+        
+      # Sample clients for this round
+      client_proxies = client_manager.sample(
             num_clients=self.min_fit_clients,
             min_num_clients=self.min_fit_clients,
         )
         
-        # Create fit instructions with current parameters and config
-        fit_ins = []
-        for client in client_proxies:
+      # Create fit instructions with current parameters and config
+      fit_ins = []
+      for client in client_proxies:
             fit_ins.append((client, flwr.common.FitIns(parameters, config)))
             
-        return fit_ins
+      return fit_ins
 
     def aggregate_fit(
         self,

@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.utils.data import DataLoader
-
+from torch.autograd import Variable
 #GLOBAL Generator 
 
 # use a Generator Network with reparametrization trick
@@ -58,7 +58,7 @@ def get_model():
     return model
 
 '''
-
+Tensor = torch.FloatTensor
 class StochasticGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
          super().__init__()
@@ -107,51 +107,89 @@ def generate_feature_representation(generator, noise, labels_one_hot):
     """
     z = generator(noise, labels_one_hot)
     return z
-#a simple encoder and classifier implementation
+#in our GPAF we will train a VAE-GAN local model in each client
+img_shape=(28,28)
+def reparameterization(mu, logvar):
+    std = torch.exp(logvar / 2)
+    sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), opt.latent_dim))))
+    z = sampled_z * std + mu
+    return z
+
 class Encoder(nn.Module):
-    """Encoder network for feature extraction."""
+    def __init__(self,latent_dim):
+        super(Encoder, self).__init__()
 
-    def __init__(self, input_dim: int, hidden_dim: int, latent_dim: int):
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, latent_dim)
-        self.relu = nn.ReLU()
+        self.model = nn.Sequential(
+            nn.Linear(int(np.prod(img_shape)), 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+        )
 
-    def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        self.mu = nn.Linear(512, latent_dim)
+        self.logvar = nn.Linear(512, latent_dim)
 
-class Classifier(nn.Module):
-    """Classifier network for label prediction."""
+    def forward(self, img):
+        img_flat = img.view(img.shape[0], -1)
+        x = self.model(img_flat)
+        mu = self.mu(x)
+        logvar = self.logvar(x)
+        z = reparameterization(mu, logvar)
+        return z
 
-    def __init__(self, latent_dim: int, num_classes: int):
-        super().__init__()
-        self.fc1 = nn.Linear(latent_dim, num_classes)
+class Decoder(nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
 
-    def forward(self, x):
-        return self.fc1(x)
+        self.model = nn.Sequential(
+            nn.Linear(opt.latent_dim, 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, int(np.prod(img_shape))),
+            nn.Tanh(),
+        )
+
+    def forward(self, z):
+        img_flat = self.model(z)
+        img = img_flat.view(img_flat.shape[0], *img_shape)
+        return img
 
 class Discriminator(nn.Module):
-    def __init__(self, latent_dim: int, num_domains: int):
-        super().__init__()
-        self.fc1 = nn.Linear(latent_dim, num_domains)
+    def __init__(self,latent_dim):
+        super(Discriminator, self).__init__()
 
-    def forward(self, x):
-        return self.fc1(x)
+        self.model = nn.Sequential(
+            nn.Linear(latent_dim, 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256, 1),
+            nn.Sigmoid(),
+        )
 
-class CombinedModel(nn.Module):
-    def __init__(self, encoder: nn.Module, classifier: nn.Module, discriminator: nn.Module):
-        super().__init__()
-        self.encoder = encoder
-        self.classifier = classifier
-        self.discriminator = discriminator
+    def forward(self, z):
+        validity = self.model(z)
+        return validity
 
-    def forward(self, x):
-        z = self.encoder(x)  # Latent representation
-        y_pred = self.classifier(z)  # Class predictions
-        d_pred = self.discriminator(z)  # Domain predictions
-        return y_pred, d_pred
+class Classifier(nn.Module):
+    def __init__(self,latent_dim,num_classes=2):
+        super(Classifier, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(latent_dim, 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256, num_classes),  # Output layer for multi-class classification
+            nn.Softmax(dim=1),
+        )
+
+    def forward(self, z):
+        logits = self.model(z)
+        return logits
+
 class Net(nn.Module):
     """Convolutional Neural Network architecture.
 
