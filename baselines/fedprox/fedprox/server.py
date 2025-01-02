@@ -11,9 +11,10 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import test,test_gpaf ,StochasticGenerator
+from fedprox.models import test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
 from flwr.server.client_proxy import ClientProxy
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from flwr.server.strategy import Strategy
 from flwr.server.client_manager import ClientManager
@@ -129,8 +130,27 @@ class GPAFStrategy(FedAvg):
 
         print(f'results format {results}')    
         # Update generator using client results
-        self._train_generator(results)
         
+        #get the label distribution
+        # Aggregate label counts
+        global_label_counts = {}
+        for _, fit_res in results:
+            client_label_counts = fit_res.metrics.get("label_counts", {})
+            for label, count in client_label_counts.items():
+                if label in global_label_counts:
+                    global_label_counts[label] += count
+                else:
+                    global_label_counts[label] = count
+        
+        # Compute global label distribution
+        total_samples = sum(global_label_counts.values())
+        label_probs = {label: count / total_samples for label, count in global_label_counts.items()}
+        
+        # Store the global label distribution for later use
+        self.label_probs = label_probs
+        self._train_generator(self.label_probs,results)
+        
+        print(f'label distribution {self.label_probs}')
         # Aggregate other parameters
         aggregated_params = self._aggregate_parameters(results)
         
@@ -143,22 +163,44 @@ class GPAFStrategy(FedAvg):
         # Let's assume we won't perform the global model evaluation on the server side.
         return None
     
-    def _train_generator(self, results: List[Tuple[ClientProxy, flwr.common.FitRes]]):
+    def _train_generator(self,label_probs, results: List[Tuple[ClientProxy, flwr.common.FitRes]]):
         """Train the generator using the ensemble of client classifiers."""
+        # Sample labels from the global distribution
+        # Loss criterion
+        # Hyperparameters
+        noise_dim = 100
+        label_dim = 2
+        hidden_dim = 256
+        output_dim = 64
+        batch_size = 16
+        learning_rate = 0.0002
+        num_epochs = 10
+        # Optimizer
+        optimizer = torch.optim.Adam(self.generator.parameters(), lr=self.learning_rate)
+        criterion = nn.CrossEntropyLoss()
+        labels = sample_labels(batch_size, label_probs)
+        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
         
-        # Sample a label y from the estimated global label distribution
-        #modify
-        y = np.random.randint(0, self.num_classes)
+        # Sample noise using the reparameterization trick
+        mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
+        logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
+        noise = reparameterize(mu, logvar)  # Reparameterized noise
+        
 
-        # Sample a noise vector ε
-        #modify
-        noise = torch.randn(1, 100)  # Assuming the generator takes 100-dimensional noise
-
-        # Generate a latent representation z using the generator
-        #modify
-        z = self.generator(noise, torch.tensor([y]))
-
+        # Zero the gradients
+        optimizer.zero_grad()
+        
+        # Generate feature representation
+        z = generate_feature_representation(self.generator, noise, labels_one_hot)
+        
+        # Compute logits from the ensemble of predictors
+        #logits = torch.stack([predictor(z) for predictor in predictors], dim=0)
+        #avg_logits = torch.mean(logits, dim=0)
+        
+       
+    
         # Compute logits for each client
+        #get the client predictors classifiers
         logits = []
         for _, fit_res in results:
             client_weights = parameters_to_ndarrays(fit_res.parameters)
@@ -169,16 +211,14 @@ class GPAFStrategy(FedAvg):
         avg_logits = torch.mean(torch.stack(logits), dim=0)
 
         # Compute cross-entropy loss
-        criterion = nn.CrossEntropyLoss()
-        loss = criterion(avg_logits, torch.tensor([y]))
-
+        loss = criterion(avg_logits, labels_one_hot.argmax(dim=1))  # Use argmax to get class indices        
         # Add auxiliary loss (entropy-based or any regularization)
-        auxiliary_loss = self._compute_auxiliary_loss(avg_logits)
-        total_loss = loss + auxiliary_loss
+        #auxiliary_loss = self._compute_auxiliary_loss(avg_logits)
+        #total_loss = loss + auxiliary_loss
 
         # Backpropagate and update generator's parameters
         self.optimizer.zero_grad()
-        total_loss.backward()
+        loss.backward()
         self.optimizer.step()
 
         # Log loss and visualize z

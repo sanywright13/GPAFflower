@@ -11,11 +11,12 @@ from torch.utils.data import DataLoader
 #GLOBAL Generator 
 
 # use a Generator Network with reparametrization trick
-
+import np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.swin_transformer import SwinTransformer
+'''
 def get_model():
     layernorm = nn.LayerNorm
     USE_CHECKPOINT=False
@@ -56,35 +57,56 @@ def get_model():
 
     return model
 
+'''
 
 class StochasticGenerator(nn.Module):
-    def __init__(self, latent_dim, num_classes, hidden_dim=256):
-        super().__init__()
-        self.latent_dim = latent_dim
-        self.label_embedding = nn.Embedding(num_classes, latent_dim)
-        
-        # Fully connected layers to create the generator network
-        self.fc1 = nn.Linear(latent_dim * 2, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, latent_dim)
-        
-    def forward(self, z, labels):
-        label_embedding = self.label_embedding(labels)
-        z = torch.cat([z, label_embedding], dim=1)
-        
-        h = F.relu(self.fc1(z))
-        h = F.relu(self.fc2(h))
-        z_mu = self.fc3(h)  # Output mean of the Gaussian distribution
-        z_logvar = torch.zeros_like(z_mu)  # Assuming unit variance for simplicity
-        
-        # Reparameterization trick
-        std = torch.exp(0.5 * z_logvar)  # Compute std from log variance
-        eps = torch.randn_like(std)  # Sample from a normal distribution
-        z_sample = z_mu + eps * std  # Sample latent vector z
-        
-        return z_sample
+    def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
+         super().__init__()
+         self.fc1 = nn.Linear(noise_dim + label_dim, hidden_dim)
+         self.fc2 = nn.Linear(hidden_dim, output_dim)
+    
+    def forward(self, noise, label):
+        x = torch.cat((noise, label), dim=1)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+def reparameterize(mu, logvar):
+    """
+    Reparameterization trick for sampling from a Gaussian distribution.
+    Args:
+        mu: Mean of the distribution.
+        logvar: Log variance of the distribution.
+    Returns:
+        Sampled z.
+    """
+    std = torch.exp(0.5 * logvar)  # Standard deviation
+    eps = torch.randn_like(std)    # Random noise from N(0, I)
+    z = mu + eps * std             # Reparameterized sample
+    return z
+def sample_labels(batch_size, label_probs):
+    """
+    Sample labels from the global label distribution.
+    Args:
+        batch_size: Number of labels to sample.
+        label_probs: Probability distribution over labels.
+    Returns:
+        Sampled labels as a tensor of integers.
+    """
+    labels = np.random.choice(len(label_probs), size=batch_size, p=label_probs)
+    return torch.tensor(labels, dtype=torch.long)
 
-
+def generate_feature_representation(generator, noise, labels_one_hot):
+    """
+    Generate feature representation using the generator.
+    Args:
+        generator: The generator network.
+        noise: Random noise input.
+        labels_one_hot: One-hot encoded labels.
+    Returns:
+        Feature representation z.
+    """
+    z = generator(noise, labels_one_hot)
+    return z
 #a simple encoder and classifier implementation
 class Encoder(nn.Module):
     """Encoder network for feature extraction."""

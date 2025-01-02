@@ -12,7 +12,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.client import NumPyClient, Client
 from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,CombinedModel,Discriminator,StochasticGenerator
-
+from fedprox.dataset_preparation import compute_label_counts
 class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
     model,
@@ -88,7 +88,11 @@ class FederatedClient(fl.client.NumPyClient):
         """Train local models using latest generator state."""
         # Update local models with global parameters
         self._update_local_models(parameters)
+        # Compute label counts
+        label_counts = compute_label_counts(self.traindata)
         
+        # Convert label counts to a format that can be sent to the server
+        label_counts_dict = dict(label_counts)
         # Update generator with latest state from server
         generator_state = config["generator_state"]
         if self.generator is None:
@@ -110,6 +114,7 @@ class FederatedClient(fl.client.NumPyClient):
         # Rest of training loop... call  train function
         test_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs)
         '''
+
         for epoch in range(config["local_epochs"]):
             for batch in self._get_train_batches():
                 x, y = batch
@@ -118,9 +123,11 @@ class FederatedClient(fl.client.NumPyClient):
                 # Use updated generator for training
                 with torch.no_grad():  # Don't compute gradients for generator
                     z = self.generator(torch.randn_like(x), y)
-                    
+                   
         '''
-        return self.get_parameters(), len(self.data), {}
+        
+        #these returned variables send directly to the server and stored in FitRes
+        return self.get_parameters(), len(self.traindata), {"label_counts": label_counts_dict}
 
 
 def gen_client_fn(
