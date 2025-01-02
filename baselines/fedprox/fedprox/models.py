@@ -286,16 +286,17 @@ discriminator,
     device: torch.device,
     client_id,
     epochs: int,
+    z
     ):
 
 # 
     learning_rate=0.01
-
+    z_global=z
     global_params = [val.detach().clone() for val in net.parameters()]
     
     net = train_one_epoch_gpaf(
             net, global_params, trainloader, device,client_id,
-            epochs
+            epochs,z_global
         )
     
 def test_gpaf(net, testloader,DEVICE):
@@ -326,7 +327,7 @@ def test_gpaf(net, testloader,DEVICE):
 
     return loss, accuracy
 
-def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainloader, DEVICE,client_id, epochs,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainloader, DEVICE,client_id, epochs,z_global,verbose=False):
     """Train the network on the training set."""
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
@@ -336,7 +337,10 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainlo
     # Combined optimizer for encoder and classifier
     main_optimizer = torch.optim.Adam(list(encoder.parameters()) + 
                                         list(classifier.parameters()))
-        
+    #modify the train client
+    # send classifier parameters to compute global generator loss
+    #visualize the z represnetation in each round.  
+    #can we say that these z representation enhance. alittle the local learning? ecepecially when there is a label shift in clients?  
     for epoch in range(epochs):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
