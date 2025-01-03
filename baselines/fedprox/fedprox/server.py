@@ -38,8 +38,10 @@ class GPAFStrategy(FedAvg):
         fraction_fit: float = 1.0,
         min_fit_clients: int = 2,
             min_evaluate_clients : int =0,  # No clients for evaluation
+   evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
     ) -> None:
-        super().__init__()
+        super().__init__(evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,)
+        #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
         self.latent_dim = 100
@@ -90,15 +92,16 @@ class GPAFStrategy(FedAvg):
 
       # Return client-EvaluateIns pairs
       return [(client, evaluate_ins) for client in clients]   
-    
-    def aggregate_evaluate(
-      self, server_round: int, results: List[Tuple[ClientProxy, EvaluateRes]], failures: List[BaseException]
-) -> Tuple[Optional[float], Dict[str, Scalar]]:
-      """Aggregate evaluation results."""
-      if not results:
-        return None, {}
-      else:
-        pass
+    def evaluate(
+        self, server_round: int, parameters: Parameters
+    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+        """Evaluate model parameters using an evaluation function."""
+        print(f'===server evaluation=======')
+        if self.evaluate_fn is None:
+            # No evaluation function provided
+            return None
+
+   
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: flwr.server.client_manager.ClientManager
