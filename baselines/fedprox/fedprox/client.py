@@ -48,6 +48,8 @@ class FederatedClient(fl.client.NumPyClient):
         """Return the parameters of the encoder and classifier.
         we access to these local parameters in aggregate_fit function
         """
+        print(f'classifier state  from server : {self.classifier.state_dict().keys()}')
+
         return [
             val.cpu().numpy() for _, val in self.encoder.state_dict().items()
         ] + [
@@ -57,33 +59,32 @@ class FederatedClient(fl.client.NumPyClient):
     def set_parameters(self, parameters: NDArrays) -> None:
       
         """Set the parameters of the encoder and classifier."""
-        print("Parameters structure:")
-        for i, param in enumerate(parameters):
-          print(f"Parameter {i}: Shape = {param.shape}")
+        #for i, param in enumerate(parameters):
+          #print(f"Parameter {i}: Shape = {param.shape}")
 
         encoder_params = zip(self.encoder.state_dict().keys(),parameters[:len(self.encoder.state_dict())])
-        classifier_params = zip(self.encoder.state_dict().keys(),parameters[len(self.encoder.state_dict()):])
+        classifier_params = zip(self.classifier.state_dict().keys(),parameters[len(self.encoder.state_dict()):])
 
         encoder_state_dict = OrderedDict({
             k: torch.tensor(v) for k, v in  encoder_params})
         classifier_state_dict = OrderedDict({
             k: torch.tensor(v) for k, v in classifier_params })
       
-
+        print(f' classifier state {classifier_state_dict.keys()}')
         self.encoder.load_state_dict(encoder_state_dict, strict=True)
         self.classifier.load_state_dict(classifier_state_dict, strict=True)
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
         self.set_parameters(parameters)
-        loss, accuracy = test_gpaf(self.model, self.validdata, self.device)
+        loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
 
     def fit(self, parameters, config):
         """Train local models using latest generator state."""
         # Update local models with global parameters
-        self._update_local_models(parameters)
+        self.set_parameters(parameters)
         # Compute label counts
         label_counts = compute_label_counts(self.traindata)
         
@@ -173,7 +174,7 @@ def gen_client_fn(
         cid = context.node_config["partition-id"]
 
         print(f"Client ID: {cid}")
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cpu")
         #get the model 
         #net = instantiate(model).to(device)
         # Instantiate the encoder and classifier'
@@ -185,6 +186,7 @@ def gen_client_fn(
  
         encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
+        print(f' clqssifier intiliation {classifier}')
         discriminator = Discriminator(latent_dim=64).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
@@ -195,7 +197,6 @@ def gen_client_fn(
             encoder,
             classifier,
             discriminator,
-            
             trainloader,
             valloader,
             num_epochs,

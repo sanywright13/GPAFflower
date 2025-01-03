@@ -92,8 +92,14 @@ def sample_labels(batch_size, label_probs):
     Returns:
         Sampled labels as a tensor of integers.
     """
-    labels = np.random.choice(len(label_probs), size=batch_size, p=label_probs)
-    return torch.tensor(labels, dtype=torch.long)
+    print(f'lqbel prob {label_probs}')
+    # Extract probabilities from the dictionary
+    probabilities = list(label_probs.values())
+    
+    # Extract labels from the dictionary
+    labels = list(label_probs.keys())
+    sampled_labels = np.random.choice(labels, size=batch_size, p=probabilities)
+    return torch.tensor(sampled_labels, dtype=torch.long)
 
 def generate_feature_representation(generator, noise, labels_one_hot):
     """
@@ -109,16 +115,16 @@ def generate_feature_representation(generator, noise, labels_one_hot):
     return z
 #in our GPAF we will train a VAE-GAN local model in each client
 img_shape=(28,28)
-def reparameterization(mu, logvar):
+def reparameterization(mu, logvar,latent_dim):
     std = torch.exp(logvar / 2)
-    sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), opt.latent_dim))))
+    sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), latent_dim))))
     z = sampled_z * std + mu
     return z
 
 class Encoder(nn.Module):
     def __init__(self,latent_dim):
         super(Encoder, self).__init__()
-
+        self.latent_dim=latent_dim
         self.model = nn.Sequential(
             nn.Linear(int(np.prod(img_shape)), 512),
             nn.LeakyReLU(0.2, inplace=True),
@@ -135,7 +141,7 @@ class Encoder(nn.Module):
         x = self.model(img_flat)
         mu = self.mu(x)
         logvar = self.logvar(x)
-        z = reparameterization(mu, logvar)
+        z = reparameterization(mu, logvar,self.latent_dim)
         return z
 
 class Decoder(nn.Module):
@@ -292,46 +298,19 @@ discriminator,
 # 
     learning_rate=0.01
     z_global=z
-    global_params = [val.detach().clone() for val in net.parameters()]
+    #global_params = [val.detach().clone() for val in net.parameters()]
     
     net = train_one_epoch_gpaf(
-            net, global_params, trainloader, device,client_id,
+        encoder,
+classifier,discriminator , trainloader, device,client_id,
             epochs,z_global
         )
-    
-def test_gpaf(net, testloader,DEVICE):
-    """Evaluate the network on the entire test set."""
-    criterion = torch.nn.CrossEntropyLoss()
-
-    # Initialize the ``BCELoss`` function
-    criterion_1 = nn.BCELoss()
-    correct, total, loss = 0, 0, 0.0
-    # Setup Adam optimizers for both G and D
-    optimizerEn = torch.optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
-    optimizerDis = torch.optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
-    net.eval()
-    with torch.no_grad():
-        for batch in testloader:
-            images, labels = batch
-            images, labels = images.to(DEVICE), labels.to(DEVICE)
-            #images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
-            labels=labels.squeeze(1)
-            #rint(labels)
-            outputs = net(images)
-            loss += criterion(outputs, labels).item()
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    loss /= len(testloader.dataset)
-    accuracy = correct / total
-
-    return loss, accuracy
-
-
+  
 #we must add a classifier that classifier into a binary categories
 #send back the classifier parameter to the server
-def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainloader, DEVICE,client_id, epochs,global_z,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_z,verbose=False):
     """Train the network on the training set."""
+    print(f'global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
     
@@ -354,6 +333,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainlo
             optimizer_D.zero_grad()
 
             # Real loss: Discriminator should classify global z as 1
+            
             if global_z is not None:
                     real_labels = torch.ones(global_z.size(0), 1, device=DEVICE)  # Real labels
                     real_loss = criterion(discriminator(global_z), real_labels)
@@ -413,51 +393,38 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator, global_params,trainlo
         print(f"Epoch {epoch+1}: Loss = {epoch_loss:.4f}, Accuracy = {epoch_acc:.4f} (Client {client_id})")
         #print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
 
+def test_gpaf(encoder,classifier, testloader,device):
+        """Evaluate the network on the entire test set."""
+        encoder.eval()
+        classifier.eval()
 
-def _train_one_epoch(  # pylint: disable=too-many-arguments
-    net: nn.Module,
-    global_params: List[Parameter],
-    trainloader: DataLoader,
-    device: torch.device,
-    criterion: torch.nn.CrossEntropyLoss,
-    optimizer: torch.optim.Adam,
-    proximal_mu: float,
-) -> nn.Module:
-    """Train for one epoch.
+        criterion = torch.nn.CrossEntropyLoss()
+        total_loss = 0.0
+        correct = 0
+        total = 0
 
-    Parameters
-    ----------
-    net : nn.Module
-        The neural network to train.
-    global_params : List[Parameter]
-        The parameters of the global model (from the server).
-    trainloader : DataLoader
-        The DataLoader containing the data to train the network on.
-    device : torch.device
-        The device on which the model should be trained, either 'cpu' or 'cuda'.
-    criterion : torch.nn.CrossEntropyLoss
-        The loss function to use for training
-    optimizer : torch.optim.Adam
-        The optimizer to use for training
-    proximal_mu : float
-        Parameter for the weight of the proximal term.
+        with torch.no_grad():
+            for inputs, labels in testloader:
+                inputs, labels = inputs.to(device), labels.to(device)
+                labels=labels.squeeze(1)
+                # Forward pass
+                features = encoder(inputs)
+                outputs = classifier(features)
 
-    Returns
-    -------
-    nn.Module
-        The model that has been trained for one epoch.
-    """
-    for images, labels in trainloader:
-        images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
-        proximal_term = 0.0
-        for local_weights, global_weights in zip(net.parameters(), global_params):
-            proximal_term += torch.square((local_weights - global_weights).norm(2))
-        loss = criterion(net(images), labels) + (proximal_mu / 2) * proximal_term
-        loss.backward()
-        optimizer.step()
-    return net
+                # Compute loss
+                loss = criterion(outputs, labels)
+                total_loss += loss.item()
 
+                # Compute accuracy
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+        # Compute average loss and accuracy
+        avg_loss = total_loss / len(testloader)
+        avg_accuracy = correct / total
+
+        return avg_loss, avg_accuracy
 
 def test(
     net: nn.Module, testloader: DataLoader, device: torch.device

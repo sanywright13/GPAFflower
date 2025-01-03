@@ -37,6 +37,7 @@ class GPAFStrategy(FedAvg):
         num_classes: int=2,
         fraction_fit: float = 1.0,
         min_fit_clients: int = 2,
+            min_evaluate_clients : int =0,  # No clients for evaluation
     ) -> None:
         super().__init__()
         # Initialize the generator and its optimizer here
@@ -103,27 +104,27 @@ class GPAFStrategy(FedAvg):
         self, server_round: int, parameters: Parameters, client_manager: flwr.server.client_manager.ClientManager
     ) -> List[Tuple[ClientProxy, flwr.common.FitIns]]:
       """Configure the next round of training and send current generator state."""
-        
+      """ send config variable to clients  and client recieve it in fit function"""
       # Generate z representation using the generator
       batch_size = 16 # Example batch size
       noise_dim = self.latent_dim  # Noise dimension
       label_dim = self.num_classes # Label dimension
       config={}
-      if server_round==1:
-        pass
-      else:  
-        # Sample noise using the reparameterization trick
-        mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
-        logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
-        noise = reparameterize(mu, logvar)  # Reparameterized noise
-        # Sample labels and convert to one-hot encoding
-        labels =sample_labels(batch_size, self.label_probs)
-        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
-        # Generate z representation
-        z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
-    
-        # Include z representation in config
-        config = {
+       
+      # Sample noise using the reparameterization trick
+      mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
+      logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
+      noise = reparameterize(mu, logvar)  # Reparameterized noise
+      # Sample labels and convert to one-hot encoding
+      labels =sample_labels(batch_size, self.label_probs)
+      labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
+      # Generate z representation
+      print(f'labels rep  {labels_one_hot}')
+      z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
+      print(f' global representation z are {z}')
+
+      # Include z representation in config
+      config = {
         "server_round": server_round,
         "z_representation": z.tolist(),  # Send z representation
         "local_epochs": 5,
@@ -179,23 +180,36 @@ class GPAFStrategy(FedAvg):
         labels = sample_labels(batch_size, self.label_probs)
         labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
         #get the clients encoder and classifier parameters
+        # Extract parameters from all clients
+        
+        # Separate encoder and classifier parameters for each client
+        encoder_params_list = []
+        classifier_params_list = []
+        num_samples_list = []
 
-        # Extract parameters from each client
-        client_parameters = []
-        for client, fit_res in results:
-          parameters = parameters_to_ndarrays(fit_res.parameters)  # Convert Parameters to NDArrays
-          client_parameters.append(parameters)
+        for client_parameters, num_samples in results:
+            # Split parameters into encoder and classifier
+            num_encoder_params = len(self.encoder.state_dict().keys())
+            encoder_params = client_parameters[:num_encoder_params]
+            classifier_params = client_parameters[num_encoder_params:]
 
-        # Example: Access encoder and classifier parameters for the first client
-        first_client_params = client_parameters[0]
-        num_encoder_params = len(self.encoder.state_dict().keys())
-        encoder_params = first_client_params[:num_encoder_params]
-        classifier_params = first_client_params[num_encoder_params:]
+            encoder_params_list.append(encoder_params)
+            classifier_params_list.append(classifier_params)
+            num_samples_list.append(num_samples)
 
-        print("Encoder parameters shape:", [p.shape for p in encoder_params])
-        print("Classifier parameters shape:", [p.shape for p in classifier_params])
+        # Aggregate encoder parameters using FedAvg
+        aggregated_encoder_params = self._fedavg_parameters(encoder_params_list, num_samples_list)
+        # Aggregate classifier parameters using FedAvg
+        aggregated_classifier_params = self._fedavg_parameters(classifier_params_list, num_samples_list)
+
+        # Combine aggregated encoder and classifier parameters
+        aggregated_params = aggregated_encoder_params + aggregated_classifier_params
+        #print("Encoder parameters shape:", [p.shape for p in encoder_params])
+        #print("Classifier parameters shape:", [p.shape for p in classifier_params])
         #get the label distribution
         # Aggregate label counts
+        print(f'aggregated classifier parameters {aggregated_encoder_params}')
+
         global_label_counts = {}
         for _, fit_res in results:
             client_label_counts = fit_res.metrics.get("label_counts", {})
@@ -211,21 +225,37 @@ class GPAFStrategy(FedAvg):
         
         # Store the global label distribution for later use
         self.label_probs = label_probs
+        #train the globel generator
         self._train_generator(self.label_probs,classifier_params)
         
         print(f'label distribution {self.label_probs}')
         # Aggregate other parameters
-        aggregated_params = self._aggregate_parameters(client_parameters)
+        #aggregated_params = self._aggregate_parameters(client_parameters)
         
-        return aggregated_params, {}
-    def evaluate(
-        self, server_round: int, parameters: Parameters
-    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
-        """Evaluate global model parameters using an evaluation function."""
+        return ndarrays_to_parameters(aggregated_params), {}
+    def _fedavg_parameters(
+        self, params_list: List[List[np.ndarray]], num_samples_list: List[int]
+    ) -> List[np.ndarray]:
+        """Aggregate parameters using FedAvg (weighted averaging)."""
+        if not params_list:
+            return []
 
-        # Let's assume we won't perform the global model evaluation on the server side.
-        return None
+        # Compute total number of samples
+        total_samples = sum(num_samples_list)
 
+        # Initialize aggregated parameters with zeros
+        aggregated_params = [np.zeros_like(param) for param in params_list[0]]
+
+        # Weighted sum of parameters
+        for params, num_samples in zip(params_list, num_samples_list):
+            for i, param in enumerate(params):
+                aggregated_params[i] += param * num_samples
+
+        # Weighted average of parameters
+        aggregated_params = [param / total_samples for param in aggregated_params]
+
+        return aggregated_params
+   
     def _create_client_model(self, classifier_params: NDArrays) -> nn.Module:
         """Create a client classifier model from parameters."""
         classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
