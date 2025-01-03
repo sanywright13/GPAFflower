@@ -12,6 +12,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.server.strategy import Strategy,FedAvg
 from fedprox.models import Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
+from fedprox.utils import save_z_to_file
 from flwr.server.client_proxy import ClientProxy
 import torch.nn as nn
 import torch.nn.functional as F
@@ -125,7 +126,7 @@ class GPAFStrategy(FedAvg):
       print(f'labels rep  {labels_one_hot}')
       z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
       print(f' global representation z are {z}')
-
+      save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
       # Include z representation in config
       config = {
         "server_round": server_round,

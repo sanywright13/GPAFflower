@@ -8,7 +8,20 @@ from typing import Dict, Optional, Union
 import matplotlib.pyplot as plt
 import numpy as np
 from flwr.server.history import History
+def save_z_to_file(z_representation, filename):
+    """
+    Save the z representation (NumPy array) to a file.
 
+    Parameters:
+        z_representation (np.ndarray): The z representation to save.
+        filename (str): The name of the file to save the z representation to.
+    """
+    try:
+        # Save the z representation to the specified file
+        np.save(filename, z_representation)
+        print(f"z representation saved to {filename}")
+    except Exception as e:
+        print(f"Error saving z representation to {filename}: {e}")
 
 def plot_metric_from_history(
     hist: History,
