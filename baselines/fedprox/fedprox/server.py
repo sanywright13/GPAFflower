@@ -42,9 +42,22 @@ class GPAFStrategy(FedAvg):
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
         self.latent_dim = 100
-        self.generator = StochasticGenerator(self.latent_dim, self.num_classes)
+        # Initialize the generator and its optimizer here
+        self.num_classes = num_classes
+        self.latent_dim = 100
+        self.hidden_dim = 256  # Define hidden_dim
+        self.output_dim = 64   # Define output_dim
+        self.generator = StochasticGenerator(
+            noise_dim=self.latent_dim,
+            label_dim=self.num_classes,
+            hidden_dim=self.hidden_dim,
+            output_dim=self.output_dim,
+        )
+        #self.generator = StochasticGenerator(self.latent_dim, self.num_classes)
         self.optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.001)
         
+        # Initialize label_probs with a default uniform distribution
+        self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
         self.client_classifiers = {}
     def initialize_parameters(
@@ -91,44 +104,31 @@ class GPAFStrategy(FedAvg):
     ) -> List[Tuple[ClientProxy, flwr.common.FitIns]]:
       """Configure the next round of training and send current generator state."""
         
-      # Aggregate label counts
-      global_label_counts = {}
-      for _, fit_res in results:
-            client_label_counts = fit_res.metrics.get("label_counts", {})
-            for label, count in client_label_counts.items():
-                if label in global_label_counts:
-                    global_label_counts[label] += count
-                else:
-                    global_label_counts[label] = count
-        
-      # Compute global label distribution
-      total_samples = sum(global_label_counts.values())
-      # Store the global label distribution for later use
-
-      self.label_probs = {label: count / total_samples for label, count in global_label_counts.items()}
-        
-      # Sample labels and convert to one-hot encoding
-      labels = sample_labels(batch_size, self.label_probs)
-      labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
       # Generate z representation using the generator
       batch_size = 16 # Example batch size
-      noise_dim = self.generator.noise_dim  # Noise dimension
-      label_dim = self.generator.label_dim  # Label dimension
-      # Sample noise using the reparameterization trick
-      mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
-      logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
-      noise = reparameterize(mu, logvar)  # Reparameterized noise
+      noise_dim = self.latent_dim  # Noise dimension
+      label_dim = self.num_classes # Label dimension
+      config={}
+      if server_round==1:
+        pass
+      else:  
+        # Sample noise using the reparameterization trick
+        mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
+        logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
+        noise = reparameterize(mu, logvar)  # Reparameterized noise
+        # Sample labels and convert to one-hot encoding
+        labels =sample_labels(batch_size, self.label_probs)
+        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
+        # Generate z representation
+        z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
     
-      # Generate z representation
-      z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
-    
-      # Include z representation in config
-      config = {
+        # Include z representation in config
+        config = {
         "server_round": server_round,
         "z_representation": z.tolist(),  # Send z representation
         "local_epochs": 5,
         "batch_size": 32,
-      }
+        }
     
         
       # Sample clients for this round
@@ -155,7 +155,29 @@ class GPAFStrategy(FedAvg):
             return None, {}
 
         print(f'results format {results}')    
+        # Generate z representation using the generator
+        batch_size = 16 # Example batch size
+        noise_dim = self.latent_dim  # Noise dimension
+        label_dim = self.num_classes  # Label dimension
+        # Aggregate label counts
+        global_label_counts = {}
+        for _, fit_res in results:
+            client_label_counts = fit_res.metrics.get("label_counts", {})
+            for label, count in client_label_counts.items():
+                if label in global_label_counts:
+                    global_label_counts[label] += count
+                else:
+                    global_label_counts[label] = count
         
+        # Compute global label distribution
+        total_samples = sum(global_label_counts.values())
+        # Store the global label distribution for later use
+
+        self.label_probs = {label: count / total_samples for label, count in global_label_counts.items()}
+        
+        # Sample labels and convert to one-hot encoding
+        labels = sample_labels(batch_size, self.label_probs)
+        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
         #get the clients encoder and classifier parameters
 
         # Extract parameters from each client

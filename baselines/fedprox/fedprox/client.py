@@ -15,7 +15,6 @@ from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,D
 from fedprox.dataset_preparation import compute_label_counts
 class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
-    model,
      data,validset,
      local_epochs,
      client_id):
@@ -27,12 +26,12 @@ class FederatedClient(fl.client.NumPyClient):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.local_epochs=local_epochs
         self.client_id=client_id
-        self.model=model
+        
         # Move models to device
         self.encoder.to(self.device)
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
-        self.model.to(self.device)
+        
         
         # Initialize optimizers
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
@@ -184,9 +183,9 @@ def gen_client_fn(
         latent_dim = 64
         num_classes = 2  # Example: MNIST has 10 classes
  
-        encoder = Encoder(input_dim, hidden_dim, latent_dim).to(device)
+        encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
-        discriminator = Discriminator(latent_dim=64, num_domains=3).to(device)
+        discriminator = Discriminator(latent_dim=64).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]
@@ -196,7 +195,7 @@ def gen_client_fn(
             encoder,
             classifier,
             discriminator,
-            model,
+            
             trainloader,
             valloader,
             num_epochs,

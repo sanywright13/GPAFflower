@@ -139,11 +139,11 @@ class Encoder(nn.Module):
         return z
 
 class Decoder(nn.Module):
-    def __init__(self):
+    def __init__(self,latent_dim):
         super(Decoder, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Linear(opt.latent_dim, 512),
+            nn.Linear(latent_dim, 512),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(512, 512),
             nn.BatchNorm1d(512),
