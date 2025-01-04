@@ -7,12 +7,36 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
-
+from flwr.client import Client, ClientApp, NumPyClient
+from flwr.common import Metrics, Context
+from flwr.server import ServerApp, ServerConfig, ServerAppComponents
+from flwr.server.strategy import FedAvg
+from flwr.simulation import run_simulation
 from fedprox import client, server, utils
+from fedprox.client import gen_client_fn
 from fedprox.dataset import load_datasets
 from fedprox.utils import save_results_as_pickle
 #from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
+
+def server_fn(context: Context) -> ServerAppComponents:
+
+    """Construct components that set the ServerApp behaviour.
+    You can use settings in `context.run_config` to parameterize the
+    construction of all elements (e.g the strategy or the number of rounds)
+    wrapped in the returned ServerAppComponents object.
+    """
+    strategy = server.GPAFStrategy(
+        fraction_fit=1.0,  # Ensure all clients participate in training
+        #fraction_evaluate=1.0,
+        min_fit_clients=2,  # Set minimum number of clients for training
+        min_evaluate_clients=2,
+        #on_fit_config_fn=fit_config_fn,
+    )
+
+    # Configure the server for 5 rounds of training
+    config = ServerConfig(num_rounds=5)
+    return ServerAppComponents(strategy=strategy, config=config)
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
@@ -35,17 +59,16 @@ def main(cfg: DictConfig) -> None:
     )
 
     # prepare function that will be used to spawn each client
-    client_fn = client.gen_client_fn(
+    client_fn = gen_client_fn(
         num_clients=cfg.num_clients,
         num_epochs=cfg.num_epochs,
         trainloaders=trainloaders,
         valloaders=valloaders,
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
-        stragglers=cfg.stragglers_fraction,
-        model=cfg.model,
+    
     )
-
+    print(f'fffffff {client_fn}')
     # get function that will executed by the strategy's evaluate() method
     # Set server's device
     device = cfg.server_device
@@ -77,23 +100,23 @@ def main(cfg: DictConfig) -> None:
     
     # Initialize generator in main
     #generator = Generator(latent_dim, num_classes)
-    strategy = server.GPAFStrategy(
-        #cfg.strategy,
-        #evaluate_fn=evaluate_fn,
-        #on_fit_config_fn=get_on_fit_config(),
-        #on_evaluate_config_fn=lambda rnd: {"round": rnd},  # Pass the round number to clients
-    )
+   
 
     # Start simulation
-    history = fl.simulation.start_simulation(
-        client_fn=client_fn,
-        num_clients=cfg.num_clients,
-        config=fl.server.ServerConfig(num_rounds=cfg.num_rounds),
-        client_resources={
+    server= ServerApp(server_fn=server_fn)
+    client=ClientApp(client_fn=client_fn)
+
+
+    history = run_simulation(
+        client_app=client,
+        server_app=server ,
+          num_supernodes=cfg.num_clients,
+    backend_config= {
             "num_cpus": cfg.client_resources.num_cpus,
             "num_gpus": cfg.client_resources.num_gpus,
         },
-        strategy=strategy,
+       
+      
     )
 
     # Experiment completed. Now we save the results and

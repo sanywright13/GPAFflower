@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 from typing import Callable, Dict, Optional, Tuple
-from MulticoreTSNE import print_function
+#from MulticoreTSNE import print_function
 import flwr
 import mlflow
 import torch
@@ -12,9 +12,10 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
+from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
 from fedprox.utils import save_z_to_file
 from flwr.server.client_proxy import ClientProxy
+
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -47,10 +48,10 @@ class GPAFStrategy(FedAvg):
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
-        self.latent_dim = 100
+        
         # Initialize the generator and its optimizer here
         self.num_classes = num_classes
-        self.latent_dim = 100
+        self.latent_dim = 64
         self.hidden_dim = 256  # Define hidden_dim
         self.output_dim = 64   # Define output_dim
         self.generator = StochasticGenerator(
@@ -66,11 +67,35 @@ class GPAFStrategy(FedAvg):
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
         self.client_classifiers = {}
-    def initialize_parameters(
-        self, client_manager: ClientManager
-    ) -> Optional[Parameters]:
-        """Initialize global model parameters."""
-        return self.initial_parameters
+
+
+    def initialize_parameters(self, client_manager):
+        print("=== Initializing Parameters ===")
+        # Initialize your models
+        encoder = Encoder(self.latent_dim)
+        classifier = Classifier(latent_dim=64, num_classes=2)
+        
+        # Get parameters in the correct format
+        encoder_params = [val.cpu().numpy() for key, val in encoder.state_dict().items() if "num_batches_tracked" not in key]  
+        classifier_params = [val.cpu().numpy() for _, val in classifier.state_dict().items()]
+        
+        # Combine parameters
+        ndarrays = encoder_params + classifier_params
+
+        tensors = ndarrays_to_parameters(ndarrays)
+        # Check for scalar arrays
+        print(f' typooo {type(tensors)}')
+        #scalar_arrays = [arr for arr in encoder_params + classifier_params if arr.shape == ()]
+       
+
+        for name, param in classifier.state_dict().items():
+          print(f"{name}: {param.shape}")        # Create Flower Parameters object
+        parameters = Parameters(tensors=tensors, tensor_type="numpy.ndarray")
+                
+        # Convert to Flower Parameters format
+        
+        return tensors
+        
 
     def num_evaluate_clients(self, client_manager: ClientManager) -> Tuple[int, int]:
       """Return the sample size and required number of clients for evaluation."""
@@ -92,7 +117,7 @@ class GPAFStrategy(FedAvg):
         self.on_evaluate_config_fn(server_round) if self.on_evaluate_config_fn is not None else {}
       )
       evaluate_ins = EvaluateIns(parameters, evaluate_config)
-
+      print(f'wwdddd {parameters}')
       # Return client-EvaluateIns pairs
       return [(client, evaluate_ins) for client in clients]   
     def evaluate(

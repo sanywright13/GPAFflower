@@ -41,58 +41,62 @@ class FederatedClient(fl.client.NumPyClient):
         # Generator will be updated from server state
         self.generator = None
     
-    def get_parameters(self, config: Dict[str, Scalar]) -> NDArrays:
-        """Return the parameters of the current encoder and classifier to the server.
-        return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
-        """
-        """Return the parameters of the encoder and classifier.
-        we access to these local parameters in aggregate_fit function
-        """
-        print(f'classifier state  from server : {self.classifier.state_dict().keys()}')
+    def get_parameters(self, config: Dict[str, Scalar]) -> List[np.ndarray]:
+      """Return the parameters of the current encoder and classifier to the server.
+        Exclude 'num_batches_tracked' from the parameters.
+      """
+      print(f'Classifier state from server: {self.classifier.state_dict().keys()}')
 
-        return [
-            val.cpu().numpy() for _, val in self.encoder.state_dict().items()
-        ] + [
-            val.cpu().numpy() for _, val in self.classifier.state_dict().items()
-        ]
+      # Extract parameters and exclude 'num_batches_tracked'
+      encoder_params = [val.cpu().numpy() for key, val in self.encoder.state_dict().items() if "num_batches_tracked" not in key]
+      classifier_params = [val.cpu().numpy() for key, val in self.classifier.state_dict().items() if "num_batches_tracked" not in key]
 
-    def set_parameters(self, parameters: NDArrays) -> None:
-      
-        """Set the parameters of the encoder and classifier."""
-        #for i, param in enumerate(parameters):
-          #print(f"Parameter {i}: Shape = {param.shape}")
+      return encoder_params + classifier_params
 
-        encoder_params = zip(self.encoder.state_dict().keys(),parameters[:len(self.encoder.state_dict())])
-        classifier_params = zip(self.classifier.state_dict().keys(),parameters[len(self.encoder.state_dict()):])
+    def set_parameters(self, parameters: List[np.ndarray]) -> None:
+      """Set the parameters of the encoder and classifier.
+      Exclude 'num_batches_tracked' from the parameters.
+      """
+      # Get the keys of the encoder and classifier state_dict (excluding 'num_batches_tracked')
+      encoder_keys = [k for k in self.encoder.state_dict().keys() if "num_batches_tracked" not in k]
+      classifier_keys = [k for k in self.classifier.state_dict().keys() if "num_batches_tracked" not in k]
 
-        encoder_state_dict = OrderedDict({
-            k: torch.tensor(v) for k, v in  encoder_params})
-        classifier_state_dict = OrderedDict({
-            k: torch.tensor(v) for k, v in classifier_params })
-      
-        #print(f' classifier state {classifier_state_dict.keys()}')
-        self.encoder.load_state_dict(encoder_state_dict, strict=True)
-        self.classifier.load_state_dict(classifier_state_dict, strict=True)
+      # Split parameters into encoder and classifier parameters
+      encoder_params = parameters[:len(encoder_keys)]
+      classifier_params = parameters[len(encoder_keys):]
+
+      # Create state_dict for encoder and classifier
+      encoder_state_dict = OrderedDict({
+        k: torch.tensor(v) for k, v in zip(encoder_keys, encoder_params)
+      })
+      classifier_state_dict = OrderedDict({
+        k: torch.tensor(v) for k, v in zip(classifier_keys, classifier_params)
+      })
+
+      # Load state_dict into models
+      self.encoder.load_state_dict(encoder_state_dict, strict=False)  # Use strict=False to ignore missing keys
+      self.classifier.load_state_dict(classifier_state_dict, strict=False)  # Use strict=False to ignore missing keys
+    
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
-        #print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
+        print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
 
     def fit(self, parameters, config):
         """Train local models using latest generator state."""
-        print('=== client training {config}')
+        print(f'=== client training {config}')
         # Update local models with global parameters
         self.set_parameters(parameters)
         # Compute label counts
-        label_counts = compute_label_counts(self.traindata)
+        #label_counts = compute_label_counts(self.traindata)
         
         # Convert label counts to a format that can be sent to the server
-        label_counts_dict = dict(label_counts)
+        #label_counts_dict = dict(label_counts)
         # Convert label counts to a format that can be sent to the server
-        label_counts_dict = dict(label_counts)
+        #label_counts_dict = dict(label_counts)
         #get the global representation 
         # Access the global z representation from the config
         z_representation = config.get("z_representation", None)
@@ -109,12 +113,12 @@ class FederatedClient(fl.client.NumPyClient):
         train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.z)
         
         #these returned variables send directly to the server and stored in FitRes
-        num_encoder_params = len(self.encoder.state_dict().keys())
-        print(f'client parameters {self.get_parameters()}')
+        num_encoder_params = int(len(self.encoder.state_dict().keys()))
+        #print(f'client parameters {self.get_parameters()}')
+        
         return self.get_parameters(), len(self.traindata), {
-        "label_counts": label_counts_dict,
         "num_encoder_params": num_encoder_params
-    }
+          }
         #return self.get_parameters(), len(self.traindata), {"label_counts": label_counts_dict},{"num_encoder_params": num_encoder_params}
 
 
@@ -125,46 +129,11 @@ def gen_client_fn(
     trainloaders: List[DataLoader],
     valloaders: List[DataLoader],
     learning_rate: float,
-    stragglers: float,
-    model: DictConfig,
-) -> Callable[[str], FederatedClient]:  # pylint: disable=too-many-arguments
-    """Generate the client function that creates the Flower Clients.
 
-    Parameters
-    ----------
-    num_clients : int
-        The number of clients present in the setup
-    num_rounds: int
-        The number of rounds in the experiment. This is used to construct
-        the scheduling for stragglers
-    num_epochs : int
-        The number of local epochs each client should run the training for before
-        sending it to the server.
-    trainloaders: List[DataLoader]
-        A list of DataLoaders, each pointing to the dataset training partition
-        belonging to a particular client.
-    valloaders: List[DataLoader]
-        A list of DataLoaders, each pointing to the dataset validation partition
-        belonging to a particular client.
-    learning_rate : float
-        The learning rate for the SGD  optimizer of clients.
-    stragglers : float
-        Proportion of stragglers in the clients, between 0 and 1.
-
-    Returns
-    -------
-    Callable[[str], FlowerClient]
-        A client function that creates Flower Clients.
-    """
-    # Defines a straggling schedule for each clients, i.e at which round will they
+) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
+   
     # be a straggler. This is done so at each round the proportion of straggling
-    # clients is respected
-    stragglers_mat = np.transpose(
-        np.random.choice(
-            [0, 1], size=(num_rounds, num_clients), p=[1 - stragglers, stragglers]
-        )
-    )
-
+    print('==== ffgtt')
     def client_fn(context: Context) -> Client:
         # Access the client ID (cid) from the context
         cid = context.node_config["partition-id"]
@@ -189,7 +158,7 @@ def gen_client_fn(
         trainloader = trainloaders[int(cid)]
         valloader = valloaders[int(cid)]
         num_epochs=1
-        return FederatedClient(
+        numpy_client =  FederatedClient(
             encoder,
             classifier,
             discriminator,
@@ -199,5 +168,9 @@ def gen_client_fn(
             cid
 
         )
-
+        print(f' sss {numpy_client}')
+        # Convert NumpyClient to Client
+        return numpy_client.to_client()
     return client_fn
+
+    

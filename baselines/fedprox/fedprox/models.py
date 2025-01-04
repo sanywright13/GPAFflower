@@ -114,10 +114,11 @@ def generate_feature_representation(generator, noise, labels_one_hot):
     z = generator(noise, labels_one_hot)
     return z
 #in our GPAF we will train a VAE-GAN local model in each client
-img_shape=(28,28)
+img_shape=(1,28,28)
 def reparameterization(mu, logvar,latent_dim):
     std = torch.exp(logvar / 2)
-    sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), latent_dim))))
+    #sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), latent_dim))))
+    sampled_z = torch.randn_like(mu)  # Sample from standard normal distribution
     z = sampled_z * std + mu
     return z
 
@@ -189,7 +190,7 @@ class Classifier(nn.Module):
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, num_classes),  # Output layer for multi-class classification
-            nn.Softmax(dim=1),
+      
         )
 
     def forward(self, z):
