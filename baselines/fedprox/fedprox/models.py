@@ -196,94 +196,9 @@ class Classifier(nn.Module):
         logits = self.model(z)
         return logits
 
-class Net(nn.Module):
-    """Convolutional Neural Network architecture.
-
-    As described in McMahan 2017 paper :
-
-    [Communication-Efficient Learning of Deep Networks from
-    Decentralized Data] (https://arxiv.org/pdf/1602.05629.pdf)
-    """
-
-    def __init__(self, num_classes: int) -> None:
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 32, 5, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, 5, padding=1)
-        self.pool = nn.MaxPool2d(kernel_size=(2, 2), padding=1)
-        self.fc1 = nn.Linear(64 * 7 * 7, 512)
-        self.fc2 = nn.Linear(512, num_classes)
-
-    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
-        """Forward pass of the CNN.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input Tensor that will pass through the network
-
-        Returns
-        -------
-        torch.Tensor
-            The resulting Tensor after it has passed through the network
-        """
-        output_tensor = F.relu(self.conv1(input_tensor))
-        output_tensor = self.pool(output_tensor)
-        output_tensor = F.relu(self.conv2(output_tensor))
-        output_tensor = self.pool(output_tensor)
-        output_tensor = torch.flatten(output_tensor, 1)
-        output_tensor = F.relu(self.fc1(output_tensor))
-        output_tensor = self.fc2(output_tensor)
-        return output_tensor
 
 
-class LogisticRegression(nn.Module):
-    """A network for logistic regression using a single fully connected layer.
 
-    As described in the Li et al., 2020 paper :
-
-    [Federated Optimization in Heterogeneous Networks] (
-
-    https://arxiv.org/pdf/1812.06127.pdf)
-    """
-
-    def __init__(self, num_classes: int) -> None:
-        super().__init__()
-        self.linear = nn.Linear(28 * 28, num_classes)
-
-    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input Tensor that will pass through the network
-
-        Returns
-        -------
-        torch.Tensor
-            The resulting Tensor after it has passed through the network
-        """
-        output_tensor = self.linear(torch.flatten(input_tensor, 1))
-        return output_tensor
-
-
-def train(  # pylint: disable=too-many-arguments
-    net: nn.Module,
-    trainloader: DataLoader,
-    device: torch.device,
-    epochs: int,
-    learning_rate: float,
-    proximal_mu: float,
-) -> None:
-
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, weight_decay=0.001)
-    global_params = [val.detach().clone() for val in net.parameters()]
-    net.train()
-    for _ in range(epochs):
-        net = _train_one_epoch(
-            net, global_params, trainloader, device, criterion, optimizer, proximal_mu
-        )
 
 def train_gpaf( encoder: nn.Module,
 classifier,
@@ -310,17 +225,18 @@ classifier,discriminator , trainloader, device,client_id,
 #send back the classifier parameter to the server
 def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_z,verbose=False):
     """Train the network on the training set."""
-    print(f'global representation z are {global_z}')
+    print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
     
-     
+    epochs=4
     optimizer_E = torch.optim.Adam(encoder.parameters(), lr=0.0002, betas=(0.5, 0.999))
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     optimizer_C = torch.optim.Adam(classifier.parameters(), lr=0.0002, betas=(0.5, 0.999))
     criterion = nn.BCELoss()  # Binary cross-entropy loss
     criterion_cls = nn.CrossEntropyLoss()  # Classification loss (for binary classification)
     for epoch in range(epochs):
+        print('==start local training ==')
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
             images, labels = batch
@@ -385,12 +301,13 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             _, predicted = torch.max(logits.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-
+            # Accumulate loss
+            epoch_loss += cls_loss.item()
             #print(labels)
             
         epoch_loss /= len(trainloader.dataset)
         epoch_acc = correct / total
-        print(f"Epoch {epoch+1}: Loss = {epoch_loss:.4f}, Accuracy = {epoch_acc:.4f} (Client {client_id})")
+        print(f"local Epoch {epoch+1}: Loss = {epoch_loss:.4f}, Accuracy = {epoch_acc:.4f} (Client {client_id})")
         #print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
 
 def test_gpaf(encoder,classifier, testloader,device):

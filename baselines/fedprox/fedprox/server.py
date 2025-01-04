@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 from typing import Callable, Dict, Optional, Tuple
+from MulticoreTSNE import print_function
 import flwr
 import mlflow
 import torch
@@ -19,6 +20,7 @@ import torch.nn.functional as F
 import numpy as np
 from flwr.server.strategy import Strategy
 from flwr.server.client_manager import ClientManager
+import os
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
@@ -41,7 +43,7 @@ class GPAFStrategy(FedAvg):
             min_evaluate_clients : int =0,  # No clients for evaluation
    evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
     ) -> None:
-        super().__init__(evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,)
+        super().__init__()
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
@@ -156,10 +158,11 @@ class GPAFStrategy(FedAvg):
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate results and update generator."""
+        print(f'results format {results} and faillure {failures}')    
         if not results:
             return None, {}
 
-        print(f'results format {results}')    
+        
         # Generate z representation using the generator
         batch_size = 16 # Example batch size
         noise_dim = self.latent_dim  # Noise dimension
@@ -186,21 +189,25 @@ class GPAFStrategy(FedAvg):
         #get the clients encoder and classifier parameters
         # Extract parameters from all clients
         
-        # Separate encoder and classifier parameters for each client
+        num_encoder_params = results[0][1].get("num_encoder_params")
+        print('f encoder params number : {num_encoder_params}')
+        
+        # Extract encoder and classifier parameters from all clients
         encoder_params_list = []
         classifier_params_list = []
         num_samples_list = []
 
-        for client_parameters, num_samples in results:
-            # Split parameters into encoder and classifier
-            num_encoder_params = len(self.encoder.state_dict().keys())
-            encoder_params = client_parameters[:num_encoder_params]
-            classifier_params = client_parameters[num_encoder_params:]
+        for _, fit_res in results:
+          # Convert parameters to NumPy arrays
+          client_parameters = parameters_to_ndarrays(fit_res.parameters)
 
-            encoder_params_list.append(encoder_params)
-            classifier_params_list.append(classifier_params)
-            num_samples_list.append(num_samples)
+          # Split parameters into encoder and classifier
+          encoder_params = client_parameters[:num_encoder_params]
+          classifier_params = client_parameters[num_encoder_params:]
 
+          encoder_params_list.append(encoder_params)
+          classifier_params_list.append(classifier_params)
+          num_samples_list.append(fit_res.num_examples)
         # Aggregate encoder parameters using FedAvg
         aggregated_encoder_params = self._fedavg_parameters(encoder_params_list, num_samples_list)
         # Aggregate classifier parameters using FedAvg
@@ -230,6 +237,7 @@ class GPAFStrategy(FedAvg):
         # Store the global label distribution for later use
         self.label_probs = label_probs
         #train the globel generator
+        print('before training in the server')
         self._train_generator(self.label_probs,classifier_params)
         
         print(f'label distribution {self.label_probs}')
@@ -283,46 +291,52 @@ class GPAFStrategy(FedAvg):
         # Optimizer
         optimizer = torch.optim.Adam(self.generator.parameters(), lr=self.learning_rate)
         criterion = nn.CrossEntropyLoss()
-        labels = sample_labels(batch_size, label_probs)
-        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
+
+        # Training loop
+        for epoch in range(num_epochs):
+          print('====== Training Generator=====')
+          epoch_loss = 0.0
+          labels = sample_labels(batch_size, label_probs)
+          labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
         
-        # Sample noise using the reparameterization trick
-        mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
-        logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
-        noise = reparameterize(mu, logvar)  # Reparameterized noise
+          # Sample noise using the reparameterization trick
+          mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
+          logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
+          noise = reparameterize(mu, logvar)  # Reparameterized noise
         
 
-        # Zero the gradients
-        optimizer.zero_grad()
+          # Zero the gradients
+          optimizer.zero_grad()
         
-        # Generate feature representation
-        z = generate_feature_representation(self.generator, noise, labels_one_hot)
-        
-        # Compute logits from the ensemble of predictors
-        #logits = torch.stack([predictor(z) for predictor in predictors], dim=0)
-        #avg_logits = torch.mean(logits, dim=0)
+          # Generate feature representation
+          z = generate_feature_representation(self.generator, noise, labels_one_hot)
+            
+          # Get logits from client classifiers
+          logits = []
+          for classifier_params in classifier_params:
+            client_model = self._create_client_model(classifier_params)  # Create client model from parameters
+            logits.append(client_model(z))
 
-        # Compute logits for each client
-        
-        # Get logits from client classifiers
-        logits = []
-        for classifier_params in classifier_params:
-          client_model = self._create_client_model(classifier_params)  # Create client model from parameters
-          logits.append(client_model(z))
+          # Average the logits from all clients
+          avg_logits = torch.mean(torch.stack(logits), dim=0)
+          # Compute cross-entropy loss
+          loss = criterion(avg_logits, labels_one_hot.argmax(dim=1))  # Use argmax to get class indices        
+          # Add auxiliary loss (entropy-based or any regularization)
+          #auxiliary_loss = self._compute_auxiliary_loss(avg_logits)
+          #total_loss = loss + auxiliary_loss
 
-        # Average the logits from all clients
-        avg_logits = torch.mean(torch.stack(logits), dim=0)
-        # Compute cross-entropy loss
-        loss = criterion(avg_logits, labels_one_hot.argmax(dim=1))  # Use argmax to get class indices        
-        # Add auxiliary loss (entropy-based or any regularization)
-        #auxiliary_loss = self._compute_auxiliary_loss(avg_logits)
-        #total_loss = loss + auxiliary_loss
+          # Backpropagate and update generator's parameters
+          loss.backward()
+          optimizer.step()
+          # Track epoch loss
+          epoch_loss += loss.item()
 
-        # Backpropagate and update generator's parameters
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
+          # Print loss for the current epoch
+          print(f"Generator Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss / batch_size:.4f}")
+        # Save global z to a file after training
+        save_dir = "z_representations"
+        os.makedirs(save_dir, exist_ok=True)
+        np.save(os.path.join(save_dir, f"global_z_round_{self.server_round}.npy"), z.detach().cpu().numpy())
         # Log loss and visualize z
         #mlflow.log_metric(f"generator_loss_round_{server_round}", total_loss.item())
 

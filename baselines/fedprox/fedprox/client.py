@@ -11,7 +11,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.client import NumPyClient, Client
-from fedprox.models import test, train,train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
+from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
 from fedprox.dataset_preparation import compute_label_counts
 class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
@@ -70,7 +70,7 @@ class FederatedClient(fl.client.NumPyClient):
         classifier_state_dict = OrderedDict({
             k: torch.tensor(v) for k, v in classifier_params })
       
-        print(f' classifier state {classifier_state_dict.keys()}')
+        #print(f' classifier state {classifier_state_dict.keys()}')
         self.encoder.load_state_dict(encoder_state_dict, strict=True)
         self.classifier.load_state_dict(classifier_state_dict, strict=True)
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
@@ -78,11 +78,12 @@ class FederatedClient(fl.client.NumPyClient):
         """Implement distributed evaluation for a given client."""
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
-        print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
+        #print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
 
     def fit(self, parameters, config):
         """Train local models using latest generator state."""
+        print('=== client training {config}')
         # Update local models with global parameters
         self.set_parameters(parameters)
         # Compute label counts
@@ -90,7 +91,8 @@ class FederatedClient(fl.client.NumPyClient):
         
         # Convert label counts to a format that can be sent to the server
         label_counts_dict = dict(label_counts)
-        
+        # Convert label counts to a format that can be sent to the server
+        label_counts_dict = dict(label_counts)
         #get the global representation 
         # Access the global z representation from the config
         z_representation = config.get("z_representation", None)
@@ -105,21 +107,15 @@ class FederatedClient(fl.client.NumPyClient):
         # Training loop
         # Rest of training loop... call  train function
         train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.z)
-        '''
-
-        for epoch in range(config["local_epochs"]):
-            for batch in self._get_train_batches():
-                x, y = batch
-                x, y = x.to(self.device), y.to(self.device)
-                
-                # Use updated generator for training
-                with torch.no_grad():  # Don't compute gradients for generator
-                    z = self.generator(torch.randn_like(x), y)
-                   
-        '''
         
         #these returned variables send directly to the server and stored in FitRes
-        return self.get_parameters(), len(self.traindata), {"label_counts": label_counts_dict}
+        num_encoder_params = len(self.encoder.state_dict().keys())
+        print(f'client parameters {self.get_parameters()}')
+        return self.get_parameters(), len(self.traindata), {
+        "label_counts": label_counts_dict,
+        "num_encoder_params": num_encoder_params
+    }
+        #return self.get_parameters(), len(self.traindata), {"label_counts": label_counts_dict},{"num_encoder_params": num_encoder_params}
 
 
 def gen_client_fn(
@@ -186,7 +182,7 @@ def gen_client_fn(
  
         encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
-        print(f' clqssifier intiliation {classifier}')
+        #print(f' clqssifier intiliation {classifier}')
         discriminator = Discriminator(latent_dim=64).to(device)
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
