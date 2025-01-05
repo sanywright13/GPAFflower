@@ -143,7 +143,7 @@ class Encoder(nn.Module):
 
         img_flat = img.view(img.shape[0], -1)
         x = self.model(img_flat)
-        print(f"Encoder model output shape (x): {x.shape}")  # Debug: Print model output shape
+        #print(f"Encoder model output shape (x): {x.shape}")  # Debug: Print model output shape
 
         mu = self.mu(x)
         logvar = self.logvar(x)

@@ -83,10 +83,11 @@ class GPAFStrategy(FedAvg):
         # Combine parameters
         ndarrays = encoder_params + classifier_params
         parameters=ndarrays_to_parameters(ndarrays)
-        print("Parameter types:")
+        #print("Parameter types:")
+        '''
         for i, param in enumerate(ndarrays):
           print(f"  Param {i}: type={type(param)}, shape={param.shape if isinstance(param, np.ndarray) else 'N/A'}")
-
+        '''
         #parameters = ndarrays_to_parameters(ndarrays)
         # Check for scalar arrays       
         # Debugging: Print parameter shapes and type
@@ -106,7 +107,7 @@ class GPAFStrategy(FedAvg):
       
       """Configure the next round of evaluation."""
       #parameters=parameters_to_ndarrays(parameters)
-      print(f' ejkfzejrk {type(parameters)}')
+      #print(f' ejkfzejrk {type(parameters)}')
       # Sample clients
       sample_size, min_num_clients = self.num_evaluate_clients(client_manager)
       clients = client_manager.sample(
@@ -143,7 +144,7 @@ class GPAFStrategy(FedAvg):
       label_dim = self.num_classes # Label dimension
       config={}
       #parameters=parameters_to_ndarrays(parameters)
-      print(f"Parameters type ddd: {type(parameters)}")
+      #print(f"Parameters type ddd: {type(parameters)}")
       # Convert Parameters to numpy arrays first
       #parameter_arrays = parameters_to_ndarrays(parameters)
       #print(f"Number of parameter arrays: {len(parameter_arrays)}")
@@ -249,7 +250,7 @@ class GPAFStrategy(FedAvg):
         #print("Classifier parameters shape:", [p.shape for p in classifier_params])
         #get the label distribution
         # Aggregate label counts
-        print(f'aggregated classifier parameters {aggregated_encoder_params}')
+        #print(f'aggregated classifier parameters {aggregated_encoder_params}')
 
         global_label_counts = {}
         for _, fit_res in results:

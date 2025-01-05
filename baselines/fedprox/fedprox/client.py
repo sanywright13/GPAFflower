@@ -58,14 +58,14 @@ class FederatedClient(fl.client.NumPyClient):
       """Return the parameters of the current encoder and classifier to the server.
         Exclude 'num_batches_tracked' from the parameters.
       """
-      print(f'Classifier state from server: {self.classifier.state_dict().keys()}')
+      #print(f'Classifier state from server: {self.classifier.state_dict().keys()}')
 
       # Extract parameters and exclude 'num_batches_tracked'
       encoder_params = [val.cpu().numpy() for key, val in self.encoder.state_dict().items() if "num_batches_tracked" not in key]
       classifier_params = [val.cpu().numpy() for key, val in self.classifier.state_dict().items() if "num_batches_tracked" not in key]
       parameters=encoder_params + classifier_params
 
-      print(f' send client para format {type(parameters)}')
+      #print(f' send client para format {type(parameters)}')
 
       return parameters
     #three run
@@ -75,7 +75,7 @@ class FederatedClient(fl.client.NumPyClient):
       """
        # Convert Flower Parameters object to List[np.ndarray]
       #parameters = parameters_to_ndarrays(parameters)
-      print(f'parameters after conversion: {type(parameters)}')  # Should be List[np.ndarray]
+      #print(f'parameters after conversion: {type(parameters)}')  # Should be List[np.ndarray]
 
       #parameters=parameters_to_ndarrays(parameters)
       # Count the number of parameters for encoder and classifier
