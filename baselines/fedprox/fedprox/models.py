@@ -320,7 +320,7 @@ def test_gpaf(encoder,classifier, testloader,device):
         total_loss = 0.0
         correct = 0
         total = 0
-
+        print(f' ==== client test func')
         with torch.no_grad():
             for inputs, labels in testloader:
                 inputs, labels = inputs.to(device), labels.to(device)

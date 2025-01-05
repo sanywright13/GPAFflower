@@ -11,6 +11,18 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from flwr.client import NumPyClient, Client
+from flwr.common import (
+    EvaluateIns,
+    EvaluateRes,
+    FitIns,
+    FitRes,
+    MetricsAggregationFn,
+    NDArrays,
+    Parameters,
+    Scalar,
+    ndarrays_to_parameters,
+    parameters_to_ndarrays,
+)
 from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
 from fedprox.dataset_preparation import compute_label_counts
 class FederatedClient(fl.client.NumPyClient):
@@ -50,36 +62,52 @@ class FederatedClient(fl.client.NumPyClient):
       # Extract parameters and exclude 'num_batches_tracked'
       encoder_params = [val.cpu().numpy() for key, val in self.encoder.state_dict().items() if "num_batches_tracked" not in key]
       classifier_params = [val.cpu().numpy() for key, val in self.classifier.state_dict().items() if "num_batches_tracked" not in key]
+      parameters=encoder_params + classifier_params
 
-      return encoder_params + classifier_params
+      print(f' send client para format {type(parameters)}')
 
+      return parameters
+    #three run
     def set_parameters(self, parameters: List[np.ndarray]) -> None:
       """Set the parameters of the encoder and classifier.
       Exclude 'num_batches_tracked' from the parameters.
       """
-      # Get the keys of the encoder and classifier state_dict (excluding 'num_batches_tracked')
-      encoder_keys = [k for k in self.encoder.state_dict().keys() if "num_batches_tracked" not in k]
-      classifier_keys = [k for k in self.classifier.state_dict().keys() if "num_batches_tracked" not in k]
+       # Convert Flower Parameters object to List[np.ndarray]
+      #parameters = parameters_to_ndarrays(parameters)
+      print(f'parameters after conversion: {type(parameters)}')  # Should be List[np.ndarray]
 
-      # Split parameters into encoder and classifier parameters
-      encoder_params = parameters[:len(encoder_keys)]
-      classifier_params = parameters[len(encoder_keys):]
-
-      # Create state_dict for encoder and classifier
-      encoder_state_dict = OrderedDict({
-        k: torch.tensor(v) for k, v in zip(encoder_keys, encoder_params)
-      })
-      classifier_state_dict = OrderedDict({
-        k: torch.tensor(v) for k, v in zip(classifier_keys, classifier_params)
-      })
-
-      # Load state_dict into models
-      self.encoder.load_state_dict(encoder_state_dict, strict=False)  # Use strict=False to ignore missing keys
-      self.classifier.load_state_dict(classifier_state_dict, strict=False)  # Use strict=False to ignore missing keys
-    
+      #parameters=parameters_to_ndarrays(parameters)
+      # Count the number of parameters for encoder and classifier
+      
+      num_encoder_params = len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])    
+      # Extract encoder parameters
+      encoder_params = parameters[:num_encoder_params]
+      #print(f'encoder_params {encoder_params}')
+      encoder_param_names = [key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key]    
+      params_dict_en = dict(zip(encoder_param_names, encoder_params))
+      # Update encoder parameters
+      encoder_state = OrderedDict(
+        {k: torch.tensor(v) for k, v in params_dict_en.items()}
+      )
+      self.encoder.load_state_dict(encoder_state, strict=True)
+      print(f' fffezrze enc')
+      
+      # Extract classifier parameters
+      classifier_params = parameters[num_encoder_params:]
+      classifier_param_names = list(self.classifier.state_dict().keys())
+      params_dict_cls = dict(zip(classifier_param_names, classifier_params))
+      #print(f'classifier_params {classifier_params}')
+      # Update classifier parameters
+      classifier_state = OrderedDict(
+          {k: torch.tensor(v) for k, v in params_dict_cls.items()}
+      )
+      self.classifier.load_state_dict(classifier_state, strict=False)
+      print(f'Classifier parameters updated')
+    #second and call set_para  
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
     ) -> Tuple[float, int, Dict]:
         """Implement distributed evaluation for a given client."""
+        print(f'===evaluate client=== {type(parameters)}')
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')

@@ -81,31 +81,31 @@ class GPAFStrategy(FedAvg):
         
         # Combine parameters
         ndarrays = encoder_params + classifier_params
+        parameters=ndarrays_to_parameters(ndarrays)
+        print("Parameter types:")
+        for i, param in enumerate(ndarrays):
+          print(f"  Param {i}: type={type(param)}, shape={param.shape if isinstance(param, np.ndarray) else 'N/A'}")
 
-        tensors = ndarrays_to_parameters(ndarrays)
-        # Check for scalar arrays
-        print(f' typooo {type(tensors)}')
-        #scalar_arrays = [arr for arr in encoder_params + classifier_params if arr.shape == ()]
-       
-
-        for name, param in classifier.state_dict().items():
-          print(f"{name}: {param.shape}")        # Create Flower Parameters object
-        parameters = Parameters(tensors=tensors, tensor_type="numpy.ndarray")
-                
-        # Convert to Flower Parameters format
+        #parameters = ndarrays_to_parameters(ndarrays)
+        # Check for scalar arrays       
+        # Debugging: Print parameter shapes and type
+        print(f"Parameters content: {type(parameters)}")
         
-        return tensors
+        return parameters
         
 
     def num_evaluate_clients(self, client_manager: ClientManager) -> Tuple[int, int]:
       """Return the sample size and required number of clients for evaluation."""
       num_clients = client_manager.num_available()
       return max(int(num_clients * self.fraction_evaluate), self.min_evaluate_clients), self.min_available_clients
-    
+    #1first run
     def configure_evaluate(
       self, server_round: int, parameters: Parameters, client_manager: ClientManager
 ) -> List[Tuple[ClientProxy, EvaluateIns]]:
+      
       """Configure the next round of evaluation."""
+      #parameters=parameters_to_ndarrays(parameters)
+      print(f' ejkfzejrk {type(parameters)}')
       # Sample clients
       sample_size, min_num_clients = self.num_evaluate_clients(client_manager)
       clients = client_manager.sample(
@@ -117,7 +117,7 @@ class GPAFStrategy(FedAvg):
         self.on_evaluate_config_fn(server_round) if self.on_evaluate_config_fn is not None else {}
       )
       evaluate_ins = EvaluateIns(parameters, evaluate_config)
-      print(f'wwdddd {parameters}')
+     
       # Return client-EvaluateIns pairs
       return [(client, evaluate_ins) for client in clients]   
     def evaluate(
@@ -141,8 +141,13 @@ class GPAFStrategy(FedAvg):
       noise_dim = self.latent_dim  # Noise dimension
       label_dim = self.num_classes # Label dimension
       config={}
-       
+      #parameters=parameters_to_ndarrays(parameters)
+      print(f"Parameters type ddd: {type(parameters)}")
+      # Convert Parameters to numpy arrays first
+      #parameter_arrays = parameters_to_ndarrays(parameters)
+      #print(f"Number of parameter arrays: {len(parameter_arrays)}")
       # Sample noise using the reparameterization trick
+      '''
       mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
       logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
       noise = reparameterize(mu, logvar)  # Reparameterized noise
@@ -150,9 +155,9 @@ class GPAFStrategy(FedAvg):
       labels =sample_labels(batch_size, self.label_probs)
       labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
       # Generate z representation
-      print(f'labels rep  {labels_one_hot}')
+      #print(f'labels rep  {labels_one_hot}')
       z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
-      print(f' global representation z are {z}')
+      #print(f' global representation z are {z}')
       save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
       # Include z representation in config
       config = {
@@ -162,7 +167,7 @@ class GPAFStrategy(FedAvg):
         "batch_size": 32,
         }
     
-        
+       ''' 
       # Sample clients for this round
       client_proxies = client_manager.sample(
             num_clients=self.min_fit_clients,
@@ -187,7 +192,7 @@ class GPAFStrategy(FedAvg):
         if not results:
             return None, {}
 
-        
+        '''
         # Generate z representation using the generator
         batch_size = 16 # Example batch size
         noise_dim = self.latent_dim  # Noise dimension
@@ -268,8 +273,8 @@ class GPAFStrategy(FedAvg):
         print(f'label distribution {self.label_probs}')
         # Aggregate other parameters
         #aggregated_params = self._aggregate_parameters(client_parameters)
-        
-        return ndarrays_to_parameters(aggregated_params), {}
+        '''
+        return ndarrays_to_parameters(results), {}
     def _fedavg_parameters(
         self, params_list: List[List[np.ndarray]], num_samples_list: List[int]
     ) -> List[np.ndarray]:
@@ -278,6 +283,8 @@ class GPAFStrategy(FedAvg):
             return []
 
         # Compute total number of samples
+
+        print("==== aggregation===")
         total_samples = sum(num_samples_list)
 
         # Initialize aggregated parameters with zeros
