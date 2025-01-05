@@ -147,7 +147,7 @@ class GPAFStrategy(FedAvg):
       #parameter_arrays = parameters_to_ndarrays(parameters)
       #print(f"Number of parameter arrays: {len(parameter_arrays)}")
       # Sample noise using the reparameterization trick
-      '''
+     
       mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
       logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
       noise = reparameterize(mu, logvar)  # Reparameterized noise
@@ -157,28 +157,27 @@ class GPAFStrategy(FedAvg):
       # Generate z representation
       #print(f'labels rep  {labels_one_hot}')
       z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
+      '''  
       #print(f' global representation z are {z}')
       save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
       # Include z representation in config
       config = {
         "server_round": server_round,
         "z_representation": z.tolist(),  # Send z representation
-        "local_epochs": 5,
-        "batch_size": 32,
         }
     
-       ''' 
+      ''' 
       # Sample clients for this round
       client_proxies = client_manager.sample(
             num_clients=self.min_fit_clients,
             min_num_clients=self.min_fit_clients,
         )
-        
+      
       # Create fit instructions with current parameters and config
       fit_ins = []
       for client in client_proxies:
             fit_ins.append((client, flwr.common.FitIns(parameters, config)))
-            
+         
       return fit_ins
 
     def aggregate_fit(
@@ -192,7 +191,7 @@ class GPAFStrategy(FedAvg):
         if not results:
             return None, {}
 
-        '''
+       
         # Generate z representation using the generator
         batch_size = 16 # Example batch size
         noise_dim = self.latent_dim  # Noise dimension
@@ -273,8 +272,8 @@ class GPAFStrategy(FedAvg):
         print(f'label distribution {self.label_probs}')
         # Aggregate other parameters
         #aggregated_params = self._aggregate_parameters(client_parameters)
-        '''
-        return ndarrays_to_parameters(results), {}
+     
+        return ndarrays_to_parameters(aggregated_params), {}
     def _fedavg_parameters(
         self, params_list: List[List[np.ndarray]], num_samples_list: List[int]
     ) -> List[np.ndarray]:
