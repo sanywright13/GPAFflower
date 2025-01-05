@@ -202,6 +202,7 @@ class GPAFStrategy(FedAvg):
         global_label_counts = {}
         for _, fit_res in results:
             client_label_counts = fit_res.metrics.get("label_counts", {})
+            print()
             for label, count in client_label_counts.items():
                 if label in global_label_counts:
                     global_label_counts[label] += count
@@ -221,7 +222,7 @@ class GPAFStrategy(FedAvg):
         # Extract parameters from all clients
         
         num_encoder_params = results[0][1].get("num_encoder_params")
-        print('f encoder params number : {num_encoder_params}')
+        #print('f encoder params number : {num_encoder_params}')
         
         # Extract encoder and classifier parameters from all clients
         encoder_params_list = []

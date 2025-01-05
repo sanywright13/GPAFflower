@@ -257,7 +257,7 @@ classifier,discriminator , trainloader, device,client_id,
 #send back the classifier parameter to the server
 def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_z,verbose=False):
     """Train the network on the training set."""
-    print(f'local global representation z are {global_z}')
+    #print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
     
