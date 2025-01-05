@@ -114,7 +114,7 @@ def generate_feature_representation(generator, noise, labels_one_hot):
     z = generator(noise, labels_one_hot)
     return z
 #in our GPAF we will train a VAE-GAN local model in each client
-img_shape=(1,28,28)
+img_shape=(28,28)
 def reparameterization(mu, logvar,latent_dim):
     std = torch.exp(logvar / 2)
     #sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), latent_dim))))
@@ -136,14 +136,31 @@ class Encoder(nn.Module):
 
         self.mu = nn.Linear(512, latent_dim)
         self.logvar = nn.Linear(512, latent_dim)
+        self._register_hooks()
 
     def forward(self, img):
+        #print(f"Encoder input shape (img): {img.shape}")  # Debug: Print input shape
+
         img_flat = img.view(img.shape[0], -1)
         x = self.model(img_flat)
+        print(f"Encoder model output shape (x): {x.shape}")  # Debug: Print model output shape
+
         mu = self.mu(x)
         logvar = self.logvar(x)
         z = reparameterization(mu, logvar,self.latent_dim)
+        #print(f"Encoder output shape (z): {z.shape}")  # Debug: Print output shape
+
+        #self._register_hooks()
         return z
+        
+        
+    def _register_hooks(self):
+        """Register hooks to track shapes at each layer."""
+        def hook_fn(module, input, output):
+            print(f"Layer enc: {module.__class__.__name__}")
+            print(f"Input shape enc: {input[0].shape}")
+            print(f"Output shape enc: {output.shape}")
+            print("-" * 20)
 
 class Decoder(nn.Module):
     def __init__(self,latent_dim):
@@ -158,11 +175,12 @@ class Decoder(nn.Module):
             nn.Linear(512, int(np.prod(img_shape))),
             nn.Tanh(),
         )
-
+        
     def forward(self, z):
         img_flat = self.model(z)
         img = img_flat.view(img_flat.shape[0], *img_shape)
         return img
+    
 
 class Discriminator(nn.Module):
     def __init__(self,latent_dim):
@@ -176,10 +194,23 @@ class Discriminator(nn.Module):
             nn.Linear(256, 1),
             nn.Sigmoid(),
         )
+        # Register hooks to track shapes
+        #self._register_hooks()
 
     def forward(self, z):
         validity = self.model(z)
         return validity
+    def _register_hooks(self):
+        """Register hooks to track shapes at each layer."""
+        def hook_fn(module, input, output):
+            print(f"Layer: {module.__class__.__name__}")
+            print(f"Input shape: {input[0].shape}")
+            print(f"Output shape: {output.shape}")
+            print("-" * 20)
+
+        # Register hooks for each layer in self.model
+        for layer in self.model:
+            layer.register_forward_hook(hook_fn)
 
 class Classifier(nn.Module):
     def __init__(self,latent_dim,num_classes=2):
@@ -243,6 +274,8 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             images, labels = batch
             images, labels = images.to(DEVICE), labels.to(DEVICE)
             real_imgs = images.to(DEVICE)
+
+            #print(f'real_imgs eee ftrze{real_imgs.shape}')
           
             # ---------------------
             # Train Discriminator
@@ -253,21 +286,23 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             
             if global_z is not None:
                     real_labels = torch.ones(global_z.size(0), 1, device=DEVICE)  # Real labels
+                    #print(f' z shape on train {real_labels.shape}')
                     real_loss = criterion(discriminator(global_z), real_labels)
+                    #print(f' dis glob z shape on train {discriminator(global_z).shape}')
+
             else:
                     real_loss = 0
 
             # Fake loss: Discriminator should classify local features as 0
             local_features = encoder(real_imgs)
-            fake_labels = torch.zeros(real_imgs.size(0), 1, device=DEVICE)  # Fake labels
-            fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
-            #images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
             
             # Fake loss: Discriminator should classify local features as 0
-            local_features = encoder(real_imgs)
+            #local_features = encoder(real_imgs)
             fake_labels = torch.zeros(real_imgs.size(0), 1)  # Fake labels
             fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
-
+            #print(f'local train feat {discriminator(local_features.detach()).shape}')
+            #print(f'local encoder features {local_features}')
+            encoder(real_imgs)
             # Total discriminator loss
             d_loss = 0.5 * (real_loss + fake_loss)
             d_loss.backward()
@@ -277,16 +312,17 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             # Train Generator
             # -----------------
             optimizer_E.zero_grad()
-
+            #print(f' z shape on train 2 {real_labels.shape}')
+            #print(f'discrim:  {discriminator(local_features).shape}')
             # Generator loss: Generator should fool the discriminator
-            
+            #discriminator(local_features)
             g_loss = criterion(discriminator(local_features), real_labels)
             g_loss.backward()
             optimizer_E.step()
 
             #Classification loss with label
             labels=labels.squeeze(1)
-
+            #print(f' label size shape {labels.shape}')
             # -----------------
             # Train Classifier
             # -----------------

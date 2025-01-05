@@ -10,6 +10,7 @@ from flwr.common.typing import NDArrays, Scalar
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
+import json
 from flwr.client import NumPyClient, Client
 from flwr.common import (
     EvaluateIns,
@@ -127,7 +128,8 @@ class FederatedClient(fl.client.NumPyClient):
         #label_counts_dict = dict(label_counts)
         #get the global representation 
         # Access the global z representation from the config
-        z_representation = config.get("z_representation", None)
+        z_representation_serialized = config.get("z_representation", None)
+        z_representation = np.array(json.loads(z_representation_serialized))  # Convert JSON string to NumPy array
 
         if z_representation is not None:
             # Convert z representation from list to numpy array and then to PyTorch tensor
@@ -144,7 +146,7 @@ class FederatedClient(fl.client.NumPyClient):
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')
         
-        return self.get_parameters(), len(self.traindata), {
+        return self.get_parameters(self.encoder), len(self.traindata), {
         "num_encoder_params": num_encoder_params
           }
         #return self.get_parameters(), len(self.traindata), {"label_counts": label_counts_dict},{"num_encoder_params": num_encoder_params}
@@ -184,6 +186,7 @@ def gen_client_fn(
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]
+        #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=1
         numpy_client =  FederatedClient(

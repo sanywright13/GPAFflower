@@ -55,7 +55,7 @@ def main(cfg: DictConfig) -> None:
     trainloaders, valloaders, testloader = load_datasets(
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
-        batch_size=cfg.batch_size,
+        batch_size=13,
     )
 
     # prepare function that will be used to spawn each client

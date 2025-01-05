@@ -11,6 +11,7 @@ from flwr.common.typing import NDArrays, Scalar
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
+import json
 from flwr.server.strategy import Strategy,FedAvg
 from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
 from fedprox.utils import save_z_to_file
@@ -137,7 +138,7 @@ class GPAFStrategy(FedAvg):
       """Configure the next round of training and send current generator state."""
       """ send config variable to clients  and client recieve it in fit function"""
       # Generate z representation using the generator
-      batch_size = 16 # Example batch size
+      batch_size = 13 # Example batch size
       noise_dim = self.latent_dim  # Noise dimension
       label_dim = self.num_classes # Label dimension
       config={}
@@ -157,16 +158,16 @@ class GPAFStrategy(FedAvg):
       # Generate z representation
       #print(f'labels rep  {labels_one_hot}')
       z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
-      '''  
+      
       #print(f' global representation z are {z}')
       save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
-      # Include z representation in config
+      z_representation_serialized = json.dumps(z.tolist())  # Convert to list and then to JSON string      # Include z representation in config
       config = {
         "server_round": server_round,
-        "z_representation": z.tolist(),  # Send z representation
+        "z_representation": z_representation_serialized,  # Send z representation
         }
     
-      ''' 
+      
       # Sample clients for this round
       client_proxies = client_manager.sample(
             num_clients=self.min_fit_clients,
@@ -193,7 +194,7 @@ class GPAFStrategy(FedAvg):
 
        
         # Generate z representation using the generator
-        batch_size = 16 # Example batch size
+        batch_size = 13 # Example batch size
         noise_dim = self.latent_dim  # Noise dimension
         label_dim = self.num_classes  # Label dimension
         # Aggregate label counts
@@ -316,7 +317,7 @@ class GPAFStrategy(FedAvg):
         label_dim = 2
         hidden_dim = 256
         output_dim = 64
-        batch_size = 16
+        batch_size = 13
         learning_rate = 0.0002
         num_epochs = 10
         # Optimizer

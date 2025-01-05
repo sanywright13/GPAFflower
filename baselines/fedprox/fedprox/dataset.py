@@ -13,7 +13,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
     config: DictConfig,
     num_clients: int,
     val_ratio: float = 0.1,
-    batch_size: Optional[int] = 32,
+    batch_size: int = 13,
     seed: Optional[int] = 42,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create the dataloaders to be fed into the model.
