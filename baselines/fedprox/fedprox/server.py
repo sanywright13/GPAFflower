@@ -226,11 +226,10 @@ class GPAFStrategy(FedAvg):
         else:
             self.label_probs = {}
         
-        print(f'Label distribution: {self.label_probs}')
+        #print(f'Label distribution: {self.label_probs}')
         # Extract num_encoder_params from the first client's metrics
         num_encoder_params = int(results[0][1].metrics["num_encoder_params"])
       
-
         #print('f encoder params number : {num_encoder_params}')
         # Extract and aggregate model parameters
         encoder_params_list = []
@@ -245,19 +244,25 @@ class GPAFStrategy(FedAvg):
             if len(client_parameters) < num_encoder_params:
                 print(f"Warning: Client parameters length ({len(client_parameters)}) is less than num_encoder_params ({num_encoder_params})")
                 continue
-                
+            # Debugging: Print the shape of each parameter
+        
             # Split parameters into encoder and classifier
-            encoder_params = client_parameters[:num_encoder_params]
-            classifier_params = client_parameters[num_encoder_params:]
-            
+            encoder_params = client_parameters[:num_encoder_params-1]
+            classifier_params = client_parameters[num_encoder_params-1:]
+            print("Shapes of client parameters:")
+            '''
+            for i, param in enumerate(client_parameters):
+              print(f"Parameter {i}: {param.shape}")    
+            '''
             encoder_params_list.append(encoder_params)
             classifier_params_list.append(classifier_params)
             num_samples_list.append(fit_res.num_examples)
-        
+            
         if not encoder_params_list or not classifier_params_list:
             print("No valid parameters to aggregate")
             return None, {}
-            
+        #print(f' cls params {classifier_params}')
+        #print(f'all cls params {classifier_params_list}')    
         # Aggregate parameters using FedAvg
         aggregated_encoder_params = self._fedavg_parameters(encoder_params_list, num_samples_list)
         aggregated_classifier_params = self._fedavg_parameters(classifier_params_list, num_samples_list)
@@ -267,9 +272,7 @@ class GPAFStrategy(FedAvg):
         
         #train the globel generator
         print('before training in the server')
-        self._train_generator(self.label_probs,classifier_params)
-        
-        print(f'label distribution {self.label_probs}')
+        self._train_generator(self.label_probs,classifier_params_list)
         # Aggregate other parameters
         #aggregated_params = self._aggregate_parameters(client_parameters)
      
@@ -300,13 +303,21 @@ class GPAFStrategy(FedAvg):
         return aggregated_params
    
     def _create_client_model(self, classifier_params: NDArrays) -> nn.Module:
-        """Create a client classifier model from parameters."""
-        classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
-        classifier_state_dict = OrderedDict({
-            k: torch.tensor(v) for k, v in zip(classifier.state_dict().keys(), classifier_params)
-        })
-        classifier.load_state_dict(classifier_state_dict, strict=True)
-        return classifier
+      """Create a client classifier model from parameters."""
+      # Initialize the classifier with the correct architecture
+      classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
+      print(f'origin classifier_params {classifier.named_parameters()}')
+      for i, param in enumerate(classifier_params):
+        print(f"Param {i}: {param.shape}")
+      # Create an ordered dictionary mapping parameter names to tensors
+      classifier_state_dict = OrderedDict()
+      for (name, _), param in zip(classifier.named_parameters(), classifier_params):
+        print(f'param name {name} and shape {param.shape}')
+        classifier_state_dict[name] = torch.tensor(param)
+
+      # Load the state_dict into the classifier
+      classifier.load_state_dict(classifier_state_dict, strict=True)
+      return classifier
     def _train_generator(self,label_probs, classifier_params:  List[NDArrays]):
         """Train the generator using the ensemble of client classifiers."""
         # Sample labels from the global distribution
@@ -334,8 +345,7 @@ class GPAFStrategy(FedAvg):
           mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
           logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
           noise = reparameterize(mu, logvar)  # Reparameterized noise
-          print(f'noise dim {noise.shape}')
-          print(f'labels dim {labels_one_hot.shape}')
+        
           # Zero the gradients
           optimizer.zero_grad()
         

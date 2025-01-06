@@ -82,7 +82,7 @@ class FederatedClient(fl.client.NumPyClient):
       
       num_encoder_params = len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])    
       # Extract encoder parameters
-      encoder_params = parameters[:num_encoder_params]
+      encoder_params = parameters[:num_encoder_params-1]
       #print(f'encoder_params {encoder_params}')
       encoder_param_names = [key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key]    
       params_dict_en = dict(zip(encoder_param_names, encoder_params))
@@ -91,10 +91,10 @@ class FederatedClient(fl.client.NumPyClient):
         {k: torch.tensor(v) for k, v in params_dict_en.items()}
       )
       self.encoder.load_state_dict(encoder_state, strict=True)
-      print(f' fffezrze enc')
+      
       
       # Extract classifier parameters
-      classifier_params = parameters[num_encoder_params:]
+      classifier_params = parameters[num_encoder_params-1:]
       classifier_param_names = list(self.classifier.state_dict().keys())
       params_dict_cls = dict(zip(classifier_param_names, classifier_params))
       #print(f'classifier_params {classifier_params}')
@@ -102,6 +102,10 @@ class FederatedClient(fl.client.NumPyClient):
       classifier_state = OrderedDict(
           {k: torch.tensor(v) for k, v in params_dict_cls.items()}
       )
+      for name, param in params_dict_cls.items():
+        print(f'client param name {name} and shape {param.shape}')
+       
+
       self.classifier.load_state_dict(classifier_state, strict=False)
       print(f'Classifier parameters updated')
     #second and call set_para  
