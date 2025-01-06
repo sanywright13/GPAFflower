@@ -25,7 +25,7 @@ from flwr.common import (
     parameters_to_ndarrays,
 )
 from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
-from fedprox.dataset_preparation import compute_label_counts
+from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
      data,validset,
@@ -39,7 +39,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.local_epochs=local_epochs
         self.client_id=client_id
-        
+        self.num_classes=2
         # Move models to device
         self.encoder.to(self.device)
         self.classifier.to(self.device)
@@ -54,7 +54,7 @@ class FederatedClient(fl.client.NumPyClient):
         # Generator will be updated from server state
         self.generator = None
     
-    def get_parameters(self, config: Dict[str, Scalar]) -> List[np.ndarray]:
+    def get_parameters(self,config: Dict[str, Scalar] = None) -> List[np.ndarray]:
       """Return the parameters of the current encoder and classifier to the server.
         Exclude 'num_batches_tracked' from the parameters.
       """
@@ -119,15 +119,16 @@ class FederatedClient(fl.client.NumPyClient):
         print(f'=== client training {config}')
         # Update local models with global parameters
         self.set_parameters(parameters)
-        # Compute label counts
-        #label_counts = compute_label_counts(self.traindata)
-        
-        # Convert label counts to a format that can be sent to the server
-        #label_counts_dict = dict(label_counts)
-        # Convert label counts to a format that can be sent to the server
-        #label_counts_dict = dict(label_counts)
-        #get the global representation 
-        # Access the global z representation from the config
+      
+        all_labels = []
+        for batch in self.traindata:
+          _, labels = batch
+          all_labels.append(labels)
+        all_labels = torch.cat(all_labels).squeeze().to(self.device)
+        label_distribution = compute_label_distribution(all_labels, self.num_classes)
+        # Serialize the label distribution to a JSON string
+        label_distribution_str = json.dumps(label_distribution)
+        #global representation
         z_representation_serialized = config.get("z_representation", None)
         z_representation = np.array(json.loads(z_representation_serialized))  # Convert JSON string to NumPy array
 
@@ -141,15 +142,22 @@ class FederatedClient(fl.client.NumPyClient):
         # Training loop
         # Rest of training loop... call  train function
         train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.z)
-        
+        print(f'label_distribution_str {type(label_distribution_str)}')
+        print(f'len(self.traindata) {type(len(self.traindata))}')
         #these returned variables send directly to the server and stored in FitRes
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')
-        
-        return self.get_parameters(self.encoder), len(self.traindata), {
-        "num_encoder_params": num_encoder_params
-          }
-        #return self.get_parameters(), len(self.traindata), {"label_counts": label_counts_dict},{"num_encoder_params": num_encoder_params}
+        print(f'num_encoder_params {type(num_encoder_params)}')
+
+        # Fixed return statement
+        return (
+        self.get_parameters(),
+        len(self.traindata),
+        {
+            "num_encoder_params": str(num_encoder_params),
+            "label_distribution": label_distribution_str
+        }
+    )
 
 
 def gen_client_fn(

@@ -16,48 +16,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #from models.swin_transformer import SwinTransformer
-'''
-def get_model():
-    layernorm = nn.LayerNorm
-    USE_CHECKPOINT=False
-    FUSED_WINDOW_PROCESS=False
-    IMG_SIZE=28
-    IN_CHANS=1
-    NUM_CLASSES=2
-    DEPTHS= [4,6]
-    NUM_HEADS=[12,24]
-    WINDOW_SIZE=7
-    MLP_RATIO=4
-    PATCH_SIZE=2
-    EMBED_DIM=96
-    QKV_BIAS=True
-    QK_SCALE=None
-    DROP_RATE=0.1
-    DROP_PATH_RATE=0.2
-    APE=False
-    PATCH_NORM=True
-    model = SwinTransformer(img_size=IMG_SIZE,
-                                patch_size=PATCH_SIZE,
-                                in_chans=IN_CHANS,
-                                num_classes=NUM_CLASSES,
-                                embed_dim=EMBED_DIM,
-                                depths=DEPTHS,
-                                num_heads=NUM_HEADS,
-                                window_size=WINDOW_SIZE,
-                                mlp_ratio=MLP_RATIO,
-                                qkv_bias=QKV_BIAS,
-                                qk_scale=QK_SCALE,
-                                drop_rate=DROP_RATE,
-                                drop_path_rate=DROP_PATH_RATE,
-                                ape=APE,
-                                norm_layer=layernorm,
-                                patch_norm=PATCH_NORM,
-                                use_checkpoint=USE_CHECKPOINT,
-                                fused_window_process=FUSED_WINDOW_PROCESS)
-
-    return model
-
-'''
 Tensor = torch.FloatTensor
 class StochasticGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
@@ -71,27 +29,13 @@ class StochasticGenerator(nn.Module):
         x = self.fc2(x)
         return x
 def reparameterize(mu, logvar):
-    """
-    Reparameterization trick for sampling from a Gaussian distribution.
-    Args:
-        mu: Mean of the distribution.
-        logvar: Log variance of the distribution.
-    Returns:
-        Sampled z.
-    """
+
     std = torch.exp(0.5 * logvar)  # Standard deviation
     eps = torch.randn_like(std)    # Random noise from N(0, I)
     z = mu + eps * std             # Reparameterized sample
     return z
 def sample_labels(batch_size, label_probs):
-    """
-    Sample labels from the global label distribution.
-    Args:
-        batch_size: Number of labels to sample.
-        label_probs: Probability distribution over labels.
-    Returns:
-        Sampled labels as a tensor of integers.
-    """
+  
     print(f'lqbel prob {label_probs}')
     # Extract probabilities from the dictionary
     probabilities = list(label_probs.values())
@@ -102,15 +46,7 @@ def sample_labels(batch_size, label_probs):
     return torch.tensor(sampled_labels, dtype=torch.long)
 
 def generate_feature_representation(generator, noise, labels_one_hot):
-    """
-    Generate feature representation using the generator.
-    Args:
-        generator: The generator network.
-        noise: Random noise input.
-        labels_one_hot: One-hot encoded labels.
-    Returns:
-        Feature representation z.
-    """
+   
     z = generator(noise, labels_one_hot)
     return z
 #in our GPAF we will train a VAE-GAN local model in each client

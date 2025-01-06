@@ -49,7 +49,8 @@ class GPAFStrategy(FedAvg):
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
-        
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         # Initialize the generator and its optimizer here
         self.num_classes = num_classes
         self.latent_dim = 64
@@ -189,7 +190,7 @@ class GPAFStrategy(FedAvg):
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate results and update generator."""
-        print(f'results format {results} and faillure {failures}')    
+        #print(f'results format {results} and faillure {failures}')    
         if not results:
             return None, {}
 
@@ -198,76 +199,72 @@ class GPAFStrategy(FedAvg):
         batch_size = 13 # Example batch size
         noise_dim = self.latent_dim  # Noise dimension
         label_dim = self.num_classes  # Label dimension
-        # Aggregate label counts
+        # Aggregate label distributions
         global_label_counts = {}
-        for _, fit_res in results:
-            client_label_counts = fit_res.metrics.get("label_counts", {})
-            print()
-            for label, count in client_label_counts.items():
-                if label in global_label_counts:
-                    global_label_counts[label] += count
-                else:
-                    global_label_counts[label] = count
-        
-        # Compute global label distribution
-        total_samples = sum(global_label_counts.values())
-        # Store the global label distribution for later use
+        total_samples = 0
 
-        self.label_probs = {label: count / total_samples for label, count in global_label_counts.items()}
+         # Aggregate label counts
+        for client_proxy, fit_res in results:
+                # Parse label distribution from metrics
+                label_distribution_str = fit_res.metrics.get("label_distribution", "{}")
+                label_distribution = json.loads(label_distribution_str)
+                client_num_samples = fit_res.num_examples
+                
+                # Accumulate label counts
+                for label, prob in label_distribution.items():
+                    label = int(label)
+                    count = int(float(prob) * client_num_samples)
+                    global_label_counts[label] = global_label_counts.get(label, 0) + count
+                    total_samples += count
+
+        # Compute global label probabilities
+        if total_samples > 0:
+            self.label_probs = {
+                label: count / total_samples 
+                for label, count in global_label_counts.items()
+            }
+        else:
+            self.label_probs = {}
         
-        # Sample labels and convert to one-hot encoding
-        labels = sample_labels(batch_size, self.label_probs)
-        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
-        #get the clients encoder and classifier parameters
-        # Extract parameters from all clients
-        
-        num_encoder_params = results[0][1].get("num_encoder_params")
+        print(f'Label distribution: {self.label_probs}')
+        # Extract num_encoder_params from the first client's metrics
+        num_encoder_params = int(results[0][1].metrics["num_encoder_params"])
+      
+
         #print('f encoder params number : {num_encoder_params}')
-        
-        # Extract encoder and classifier parameters from all clients
+        # Extract and aggregate model parameters
         encoder_params_list = []
         classifier_params_list = []
         num_samples_list = []
-
+        
         for _, fit_res in results:
-          # Convert parameters to NumPy arrays
-          client_parameters = parameters_to_ndarrays(fit_res.parameters)
-
-          # Split parameters into encoder and classifier
-          encoder_params = client_parameters[:num_encoder_params]
-          classifier_params = client_parameters[num_encoder_params:]
-
-          encoder_params_list.append(encoder_params)
-          classifier_params_list.append(classifier_params)
-          num_samples_list.append(fit_res.num_examples)
-        # Aggregate encoder parameters using FedAvg
+            # Convert parameters to NumPy arrays
+            client_parameters = parameters_to_ndarrays(fit_res.parameters)
+            
+            # Validate parameter length
+            if len(client_parameters) < num_encoder_params:
+                print(f"Warning: Client parameters length ({len(client_parameters)}) is less than num_encoder_params ({num_encoder_params})")
+                continue
+                
+            # Split parameters into encoder and classifier
+            encoder_params = client_parameters[:num_encoder_params]
+            classifier_params = client_parameters[num_encoder_params:]
+            
+            encoder_params_list.append(encoder_params)
+            classifier_params_list.append(classifier_params)
+            num_samples_list.append(fit_res.num_examples)
+        
+        if not encoder_params_list or not classifier_params_list:
+            print("No valid parameters to aggregate")
+            return None, {}
+            
+        # Aggregate parameters using FedAvg
         aggregated_encoder_params = self._fedavg_parameters(encoder_params_list, num_samples_list)
-        # Aggregate classifier parameters using FedAvg
         aggregated_classifier_params = self._fedavg_parameters(classifier_params_list, num_samples_list)
-
-        # Combine aggregated encoder and classifier parameters
+        
+        # Combine aggregated parameters
         aggregated_params = aggregated_encoder_params + aggregated_classifier_params
-        #print("Encoder parameters shape:", [p.shape for p in encoder_params])
-        #print("Classifier parameters shape:", [p.shape for p in classifier_params])
-        #get the label distribution
-        # Aggregate label counts
-        #print(f'aggregated classifier parameters {aggregated_encoder_params}')
-
-        global_label_counts = {}
-        for _, fit_res in results:
-            client_label_counts = fit_res.metrics.get("label_counts", {})
-            for label, count in client_label_counts.items():
-                if label in global_label_counts:
-                    global_label_counts[label] += count
-                else:
-                    global_label_counts[label] = count
         
-        # Compute global label distribution
-        total_samples = sum(global_label_counts.values())
-        label_probs = {label: count / total_samples for label, count in global_label_counts.items()}
-        
-        # Store the global label distribution for later use
-        self.label_probs = label_probs
         #train the globel generator
         print('before training in the server')
         self._train_generator(self.label_probs,classifier_params)
@@ -315,7 +312,7 @@ class GPAFStrategy(FedAvg):
         # Sample labels from the global distribution
         # Loss criterion
         # Hyperparameters
-        noise_dim = 100
+        noise_dim = 64
         label_dim = 2
         hidden_dim = 256
         output_dim = 64
@@ -323,7 +320,7 @@ class GPAFStrategy(FedAvg):
         learning_rate = 0.0002
         num_epochs = 10
         # Optimizer
-        optimizer = torch.optim.Adam(self.generator.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
         criterion = nn.CrossEntropyLoss()
 
         # Training loop
@@ -337,8 +334,8 @@ class GPAFStrategy(FedAvg):
           mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
           logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
           noise = reparameterize(mu, logvar)  # Reparameterized noise
-        
-
+          print(f'noise dim {noise.shape}')
+          print(f'labels dim {labels_one_hot.shape}')
           # Zero the gradients
           optimizer.zero_grad()
         

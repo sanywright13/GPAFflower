@@ -1,7 +1,7 @@
 
 """Functions for dataset download and processing."""
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple,Dict
 
 import numpy as np
 import torch
@@ -40,7 +40,13 @@ def compute_label_counts(dataset):
     labels = [label for _, label in dataset]  # Extract labels from the dataset
     label_counts = Counter(labels)  # Count occurrences of each label
     return label_counts
-    
+
+def compute_label_distribution(labels: torch.Tensor, num_classes: int) -> Dict[int, float]:
+    """Compute the label distribution for a given set of labels."""
+    label_counts = torch.bincount(labels, minlength=num_classes).float()
+    label_probs = label_counts / label_counts.sum()
+    return {label: label_probs[label].item() for label in range(num_classes)}
+
 def makeBreastnistdata(root_path, prefix):
   print(f' root path {root_path}')
   data_path=os.path.join(root_path,'dataset')
