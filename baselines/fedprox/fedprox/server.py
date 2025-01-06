@@ -92,11 +92,19 @@ class GPAFStrategy(FedAvg):
         #parameters = ndarrays_to_parameters(ndarrays)
         # Check for scalar arrays       
         # Debugging: Print parameter shapes and type
-        print(f"Parameters content: {type(parameters)}")
+        #print(f"Parameters content: {type(parameters)}")
         
         return parameters
         
-
+    def get_generator_parameters(self) -> Parameters:
+        """Convert generator parameters to Flower Parameters format."""
+        generator_state_dict = self.generator.state_dict()
+        # Convert state dict to numpy arrays
+        generator_params = [
+            param.cpu().numpy() 
+            for param in generator_state_dict.values()
+        ]
+        return ndarrays_to_parameters(generator_params)
     def num_evaluate_clients(self, client_manager: ClientManager) -> Tuple[int, int]:
       """Return the sample size and required number of clients for evaluation."""
       num_clients = client_manager.num_available()
@@ -144,33 +152,33 @@ class GPAFStrategy(FedAvg):
       noise_dim = self.latent_dim  # Noise dimension
       label_dim = self.num_classes # Label dimension
       config={}
-      #parameters=parameters_to_ndarrays(parameters)
-      #print(f"Parameters type ddd: {type(parameters)}")
-      # Convert Parameters to numpy arrays first
-      #parameter_arrays = parameters_to_ndarrays(parameters)
-      #print(f"Number of parameter arrays: {len(parameter_arrays)}")
-      # Sample noise using the reparameterization trick
-     
+    
       mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
       logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
       noise = reparameterize(mu, logvar)  # Reparameterized noise
       # Sample labels and convert to one-hot encoding
       labels =sample_labels(batch_size, self.label_probs)
       labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
-      # Generate z representation
-      #print(f'labels rep  {labels_one_hot}')
-      z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
-      
-      #print(f' global representation z are {z}')
-      save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
-      z_representation_serialized = json.dumps(z.tolist())  # Convert to list and then to JSON string      # Include z representation in config
-      config = {
-        "server_round": server_round,
-        "z_representation": z_representation_serialized,  # Send z representation
-        }
     
-      
-      # Sample clients for this round
+      #z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
+    
+      #save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
+      #z_representation_serialized = json.dumps(z.tolist())  # Convert to list and then to JSON string      # Include z representation in config
+      # Get generator parameters
+      #generator_params = self.get_generator_parameters()
+      # Train generator and get parameters
+      generator_state = self.generator.state_dict()
+        
+      # Convert generator parameters to NumPy arrays
+      generator_numpy_params = [param.cpu().detach().numpy() for param in generator_state.values()]
+
+      # Serialize generator parameters into a JSON string
+      generator_params_serialized = json.dumps([param.tolist() for param in generator_numpy_params])
+      config = {
+            "round": server_round,
+            "generator_params": generator_params_serialized,
+        }
+
       client_proxies = client_manager.sample(
             num_clients=self.min_fit_clients,
             min_num_clients=self.min_fit_clients,
@@ -190,7 +198,7 @@ class GPAFStrategy(FedAvg):
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate results and update generator."""
-        #print(f'results format {results} and faillure {failures}')    
+        print(f'results format {results} and faillure {failures}')    
         if not results:
             return None, {}
 
@@ -230,8 +238,6 @@ class GPAFStrategy(FedAvg):
         # Extract num_encoder_params from the first client's metrics
         num_encoder_params = int(results[0][1].metrics["num_encoder_params"])
       
-        #print('f encoder params number : {num_encoder_params}')
-        # Extract and aggregate model parameters
         encoder_params_list = []
         classifier_params_list = []
         num_samples_list = []
@@ -261,8 +267,6 @@ class GPAFStrategy(FedAvg):
         if not encoder_params_list or not classifier_params_list:
             print("No valid parameters to aggregate")
             return None, {}
-        #print(f' cls params {classifier_params}')
-        #print(f'all cls params {classifier_params_list}')    
         # Aggregate parameters using FedAvg
         aggregated_encoder_params = self._fedavg_parameters(encoder_params_list, num_samples_list)
         aggregated_classifier_params = self._fedavg_parameters(classifier_params_list, num_samples_list)
@@ -271,20 +275,22 @@ class GPAFStrategy(FedAvg):
         aggregated_params = aggregated_encoder_params + aggregated_classifier_params
         
         #train the globel generator
-        print('before training in the server')
+        
         self._train_generator(self.label_probs,classifier_params_list)
         # Aggregate other parameters
         #aggregated_params = self._aggregate_parameters(client_parameters)
-     
-        return ndarrays_to_parameters(aggregated_params), {}
+        # Get generator parameters to send to clients
+        #self.generator_params = self.get_generator_parameters()
+        return ndarrays_to_parameters(aggregated_params),
+        {
+            
+        }
     def _fedavg_parameters(
         self, params_list: List[List[np.ndarray]], num_samples_list: List[int]
     ) -> List[np.ndarray]:
         """Aggregate parameters using FedAvg (weighted averaging)."""
         if not params_list:
             return []
-
-        # Compute total number of samples
 
         print("==== aggregation===")
         total_samples = sum(num_samples_list)
@@ -302,22 +308,53 @@ class GPAFStrategy(FedAvg):
 
         return aggregated_params
    
-    def _create_client_model(self, classifier_params: NDArrays) -> nn.Module:
-      """Create a client classifier model from parameters."""
-      # Initialize the classifier with the correct architecture
-      classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
-      print(f'origin classifier_params {classifier.named_parameters()}')
-      for i, param in enumerate(classifier_params):
-        print(f"Param {i}: {param.shape}")
-      # Create an ordered dictionary mapping parameter names to tensors
-      classifier_state_dict = OrderedDict()
-      for (name, _), param in zip(classifier.named_parameters(), classifier_params):
-        print(f'param name {name} and shape {param.shape}')
-        classifier_state_dict[name] = torch.tensor(param)
+    def _create_client_model(self, classifier_params: NDArrays) -> nn.Module: 
+        # Initialize the classifier
+        classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
+        '''
+        # Debug print the original model structure
+        print("Original classifier parameter structure:")
+        for name, param in classifier.named_parameters():
+            print(f"  {name}: {param.shape}")
+            
+        # Debug print received parameters
+        print("\nReceived parameters:")
+        for i, param in enumerate(classifier_params):
+            print(f"  Param {i}: {param.shape}")
+        '''
+        # Create state dict with proper device placement
+        classifier_state_dict = OrderedDict()
+        
+        for (name, orig_param), param_data in zip(classifier.named_parameters(), classifier_params):
+            # Convert numpy array to tensor if necessary
+            if isinstance(param_data, np.ndarray):
+                param_tensor = torch.tensor(param_data, dtype=orig_param.dtype)
+            else:
+                param_tensor = param_data.clone()
+            '''
+            # Check if shapes match
+            if param_tensor.shape != orig_param.shape:
+                print(f"Warning: Shape mismatch for {name}")
+                print(f"  Expected shape: {orig_param.shape}")
+                print(f"  Received shape: {param_tensor.shape}")
+                # Try to reshape if possible
+                try:
+                    param_tensor = param_tensor.reshape(orig_param.shape)
+                except:
+                    raise ValueError(f"Cannot reshape parameter {name} from {param_tensor.shape} to {orig_param.shape}")
+            '''
+            # Move to correct device
+            param_tensor = param_tensor.to(self.device)
+            classifier_state_dict[name] = param_tensor
+            #print(f"Successfully processed {name} with shape {param_tensor.shape}")
+        
+        # Load the state dict
+        classifier.load_state_dict(classifier_state_dict, strict=True)
+        
+        return classifier
+        
+    
 
-      # Load the state_dict into the classifier
-      classifier.load_state_dict(classifier_state_dict, strict=True)
-      return classifier
     def _train_generator(self,label_probs, classifier_params:  List[NDArrays]):
         """Train the generator using the ensemble of client classifiers."""
         # Sample labels from the global distribution
@@ -328,56 +365,67 @@ class GPAFStrategy(FedAvg):
         hidden_dim = 256
         output_dim = 64
         batch_size = 13
-        learning_rate = 0.0002
+        learning_rate = 0.001
         num_epochs = 10
         # Optimizer
         optimizer = torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
         criterion = nn.CrossEntropyLoss()
 
-        # Training loop
+       # Training loop
         for epoch in range(num_epochs):
           print('====== Training Generator=====')
           epoch_loss = 0.0
+        
+          # Sample labels and prepare tensors
           labels = sample_labels(batch_size, label_probs)
-          labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
+          labels = torch.tensor(labels, dtype=torch.long).to(self.device)
+          labels_one_hot = F.one_hot(labels, num_classes=label_dim).float().to(self.device)
         
-          # Sample noise using the reparameterization trick
-          mu = torch.zeros(batch_size, noise_dim)  # Mean of the Gaussian
-          logvar = torch.zeros(batch_size, noise_dim)  # Log variance of the Gaussian
-          noise = reparameterize(mu, logvar)  # Reparameterized noise
+          # Sample noise
+          mu = torch.zeros(batch_size, noise_dim).to(self.device)
+          logvar = torch.zeros(batch_size, noise_dim).to(self.device)
+          noise = reparameterize(mu, logvar)
         
-          # Zero the gradients
           optimizer.zero_grad()
         
           # Generate feature representation
           z = generate_feature_representation(self.generator, noise, labels_one_hot)
-            
+          #print(f'z representation shape: {z.shape}')
+        
           # Get logits from client classifiers
           logits = []
-          for classifier_params in classifier_params:
-            client_model = self._create_client_model(classifier_params)  # Create client model from parameters
-            logits.append(client_model(z))
-
+          
+          for params in classifier_params:
+                # Convert parameters to proper format if they're named parameters
+                if hasattr(params, '__iter__') and not isinstance(params, (list, tuple, np.ndarray)):
+                    params = [p.detach().cpu().numpy() for _, p in params]
+                
+                client_model = self._create_client_model(params)
+                client_model = client_model.to(self.device)
+                client_model.eval()
+                
+                client_logits = client_model(z)
+                logits.append(client_logits)
+                    
+          if not logits:
+                raise ValueError("No valid logits generated from client models")
+                
           # Average the logits from all clients
           avg_logits = torch.mean(torch.stack(logits), dim=0)
-          # Compute cross-entropy loss
-          loss = criterion(avg_logits, labels_one_hot.argmax(dim=1))  # Use argmax to get class indices        
-          # Add auxiliary loss (entropy-based or any regularization)
-          #auxiliary_loss = self._compute_auxiliary_loss(avg_logits)
-          #total_loss = loss + auxiliary_loss
-
-          # Backpropagate and update generator's parameters
+            
+          # Compute loss
+          loss = criterion(avg_logits, labels)
+            
+          # Backpropagate and update generator
           loss.backward()
           optimizer.step()
-          # Track epoch loss
+            
           epoch_loss += loss.item()
-
-          # Print loss for the current epoch
-          print(f"Generator Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss / batch_size:.4f}")
-        # Save global z to a file after training
+          print(f"Generator Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+            
         save_dir = "z_representations"
-        os.makedirs(save_dir, exist_ok=True)
-        np.save(os.path.join(save_dir, f"global_z_round_{self.server_round}.npy"), z.detach().cpu().numpy())
+        #os.makedirs(save_dir, exist_ok=True)
+        #np.save(os.path.join(save_dir, f"global_z_round_{self.server_round}.npy"), z.detach().cpu().numpy())
         # Log loss and visualize z
         #mlflow.log_metric(f"generator_loss_round_{server_round}", total_loss.item())
 

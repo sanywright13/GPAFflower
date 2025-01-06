@@ -36,7 +36,7 @@ def reparameterize(mu, logvar):
     return z
 def sample_labels(batch_size, label_probs):
   
-    print(f'lqbel prob {label_probs}')
+    #print(f'lqbel prob {label_probs}')
     # Extract probabilities from the dictionary
     probabilities = list(label_probs.values())
     
@@ -159,10 +159,18 @@ class Classifier(nn.Module):
             nn.Linear(256, num_classes),  # Output layer for multi-class classification
       
         )
+        self._register_hooks()
 
     def forward(self, z):
         logits = self.model(z)
         return logits
+    def _register_hooks(self):
+        """Register hooks to track shapes at each layer."""
+        def hook_fn(module, input, output):
+            print(f"Layer: {module.__class__.__name__}")
+            print(f"Input shape: {input[0].shape}")
+            print(f"Output shape: {output.shape}")
+            print("-" * 20)
 
 
 
@@ -175,23 +183,23 @@ discriminator,
     device: torch.device,
     client_id,
     epochs: int,
-    z
+   global_generator
     ):
 
 # 
     learning_rate=0.01
-    z_global=z
+    
     #global_params = [val.detach().clone() for val in net.parameters()]
     
     net = train_one_epoch_gpaf(
         encoder,
 classifier,discriminator , trainloader, device,client_id,
-            epochs,z_global
+            epochs,global_generator
         )
   
 #we must add a classifier that classifier into a binary categories
 #send back the classifier parameter to the server
-def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_z,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,verbose=False):
     """Train the network on the training set."""
     #print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
@@ -209,9 +217,22 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
         for batch in trainloader:
             images, labels = batch
             images, labels = images.to(DEVICE), labels.to(DEVICE)
+            labels=labels.squeeze(1)
             real_imgs = images.to(DEVICE)
 
-            #print(f'real_imgs eee ftrze{real_imgs.shape}')
+            # Generate global z representation
+            batch_size = 13
+            noise = torch.randn(batch_size, 64).to(DEVICE)
+            labels_onehot = F.one_hot(labels.long(), num_classes=2).float()
+            print(f'real_imgs eee ftrze{labels_onehot.dtype} and {noise.dtype}')
+            noise = torch.tensor(noise, dtype=torch.float32)
+            with torch.no_grad():
+                    print(f'genrtjure ')
+                    global_z = global_generator(noise, labels_onehot)
+                
+
+
+            
           
             # ---------------------
             # Train Discriminator
@@ -257,7 +278,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             optimizer_E.step()
 
             #Classification loss with label
-            labels=labels.squeeze(1)
+            
             #print(f' label size shape {labels.shape}')
             # -----------------
             # Train Classifier

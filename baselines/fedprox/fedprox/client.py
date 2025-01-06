@@ -44,7 +44,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.encoder.to(self.device)
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
-        
+        self.global_generator = StochasticGenerator(noise_dim=64, label_dim=2, hidden_dim=256  , output_dim=64)
         
         # Initialize optimizers
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
@@ -82,7 +82,7 @@ class FederatedClient(fl.client.NumPyClient):
       
       num_encoder_params = len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])    
       # Extract encoder parameters
-      encoder_params = parameters[:num_encoder_params-1]
+      encoder_params = parameters[:num_encoder_params]
       #print(f'encoder_params {encoder_params}')
       encoder_param_names = [key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key]    
       params_dict_en = dict(zip(encoder_param_names, encoder_params))
@@ -94,7 +94,7 @@ class FederatedClient(fl.client.NumPyClient):
       
       
       # Extract classifier parameters
-      classifier_params = parameters[num_encoder_params-1:]
+      classifier_params = parameters[num_encoder_params:]
       classifier_param_names = list(self.classifier.state_dict().keys())
       params_dict_cls = dict(zip(classifier_param_names, classifier_params))
       #print(f'classifier_params {classifier_params}')
@@ -102,9 +102,10 @@ class FederatedClient(fl.client.NumPyClient):
       classifier_state = OrderedDict(
           {k: torch.tensor(v) for k, v in params_dict_cls.items()}
       )
+      '''
       for name, param in params_dict_cls.items():
         print(f'client param name {name} and shape {param.shape}')
-       
+      ''' 
 
       self.classifier.load_state_dict(classifier_state, strict=False)
       print(f'Classifier parameters updated')
@@ -117,13 +118,66 @@ class FederatedClient(fl.client.NumPyClient):
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
+    def load_generator_params(self, generator_params: List[np.ndarray]):
+        """Load generator parameters from server."""
+        try:
+            # Create state dict from parameters
+            state_dict = {}
+            '''
+            param_shapes = [
+                # Add your generator's parameter shapes here
+                ('noise_proj.weight', (256, 64)),
+                ('noise_proj.bias', (256,)),
+                ('label_proj.weight', (256, 2)),
+                ('label_proj.bias', (256,)),
+                ('hidden.weight', (64, 512)),
+                ('hidden.bias', (64,)),
+                # Add other layers as needed
+            ]
+            '''
+            # Create a list of parameter shapes from the state_dict
+            param_shapes = [(name, param.shape) for name, param in state_dict.items()]
+            idx = 0
+            for name, shape in param_shapes:
+                param_size = np.prod(shape)
+                param = generator_params[idx].reshape(shape)
+                state_dict[name] = torch.tensor(param, device=self.device)
+                idx += 1
+            
+            # Load parameters into generator
+            self.global_generator.load_state_dict(state_dict)
+            self.global_generator.to(self.device)
+            self.global_generator.eval()  # Set to eval mode
+            
+            print("Successfully loaded generator parameters")
+            return True
+        
+        except Exception as e:
+            print(f"Error loading generator parameters: {str(e)}")
+            return False
 
     def fit(self, parameters, config):
         """Train local models using latest generator state."""
         print(f'=== client training {config}')
         # Update local models with global parameters
         self.set_parameters(parameters)
-      
+        # Load generator parameters if provided
+       
+        # Access serialized generator parameters from config
+        generator_params_serialized = config.get("generator_params", "")
+        #print(f' generalized globl {generator_params_serialized}')
+        # Deserialize generator parameters from JSON string
+        generator_params_list = json.loads(generator_params_serialized)
+
+        # Convert deserialized parameters into NumPy arrays
+        generator_params_ndarrays = [np.array(param) for param in generator_params_list]
+
+        # Convert NumPy arrays to PyTorch tensors
+        generator_params_tensors = [torch.tensor(param , dtype=torch.float32) for param in generator_params_ndarrays]
+
+        # Load generator parameters into the generator model
+        for param, tensor in zip(self.global_generator.parameters(), generator_params_tensors):
+          param.data = tensor.to(self.device)
         all_labels = []
         for batch in self.traindata:
           _, labels = batch
@@ -133,6 +187,7 @@ class FederatedClient(fl.client.NumPyClient):
         # Serialize the label distribution to a JSON string
         label_distribution_str = json.dumps(label_distribution)
         #global representation
+        '''
         z_representation_serialized = config.get("z_representation", None)
         z_representation = np.array(json.loads(z_representation_serialized))  # Convert JSON string to NumPy array
 
@@ -142,16 +197,16 @@ class FederatedClient(fl.client.NumPyClient):
         else:
             print("Warning: No z representation provided in config.")
             self.z = None
-
+        '''
         # Training loop
         # Rest of training loop... call  train function
-        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.z)
-        print(f'label_distribution_str {type(label_distribution_str)}')
-        print(f'len(self.traindata) {type(len(self.traindata))}')
+        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator)
+        #print(f'label_distribution_str {type(label_distribution_str)}')
+        #print(f'len(self.traindata) {type(len(self.traindata))}')
         #these returned variables send directly to the server and stored in FitRes
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')
-        print(f'num_encoder_params {type(num_encoder_params)}')
+        #print(f'num_encoder_params {type(num_encoder_params)}')
 
         # Fixed return statement
         return (
