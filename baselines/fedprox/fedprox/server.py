@@ -281,10 +281,8 @@ class GPAFStrategy(FedAvg):
         #aggregated_params = self._aggregate_parameters(client_parameters)
         # Get generator parameters to send to clients
         #self.generator_params = self.get_generator_parameters()
-        return ndarrays_to_parameters(aggregated_params),
-        {
-            
-        }
+        return ndarrays_to_parameters(aggregated_params),{}
+        
     def _fedavg_parameters(
         self, params_list: List[List[np.ndarray]], num_samples_list: List[int]
     ) -> List[np.ndarray]:
