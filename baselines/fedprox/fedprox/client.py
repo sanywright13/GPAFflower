@@ -52,7 +52,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.optimizer_discriminator = torch.optim.Adam(self.discriminator.parameters())
         
         # Generator will be updated from server state
-        self.generator = None
+        #self.generator = None
     
     def get_parameters(self,config: Dict[str, Scalar] = None) -> List[np.ndarray]:
       """Return the parameters of the current encoder and classifier to the server.
@@ -213,7 +213,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.get_parameters(),
         len(self.traindata),
         {
-            "num_encoder_params": str(num_encoder_params),
+            "num_encoder_params": num_encoder_params,
             "label_distribution": label_distribution_str
         }
     )
@@ -255,7 +255,7 @@ def gen_client_fn(
         trainloader = trainloaders[int(cid)]
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=1
+        num_epochs=10
         numpy_client =  FederatedClient(
             encoder,
             classifier,

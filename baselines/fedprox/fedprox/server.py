@@ -198,7 +198,7 @@ class GPAFStrategy(FedAvg):
                 failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate results and update generator."""
-        print(f'results format {results} and faillure {failures}')    
+        print(f'results faillure {failures}')    
         if not results:
             return None, {}
 

@@ -29,13 +29,13 @@ def server_fn(context: Context) -> ServerAppComponents:
     strategy = server.GPAFStrategy(
         fraction_fit=1.0,  # Ensure all clients participate in training
         #fraction_evaluate=1.0,
-        min_fit_clients=2,  # Set minimum number of clients for training
+        min_fit_clients=3,  # Set minimum number of clients for training
         min_evaluate_clients=2,
         #on_fit_config_fn=fit_config_fn,
     )
 
     # Configure the server for 5 rounds of training
-    config = ServerConfig(num_rounds=5)
+    config = ServerConfig(num_rounds=10)
     return ServerAppComponents(strategy=strategy, config=config)
 
 
@@ -55,7 +55,7 @@ def main(cfg: DictConfig) -> None:
     trainloaders, valloaders, testloader = load_datasets(
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
-        batch_size=13,
+        batch_size=cfg.batch_size,
     )
 
     # prepare function that will be used to spawn each client
@@ -92,11 +92,7 @@ def main(cfg: DictConfig) -> None:
 
 
     # Initialize parameters
-    num_clients = 10
-    num_rounds = 100
-    feature_dim = 256
-    num_classes = 10
-    latent_dim = 100
+  
     
     # Initialize generator in main
     #generator = Generator(latent_dim, num_classes)

@@ -205,7 +205,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
     
-    epochs=4
+    
     optimizer_E = torch.optim.Adam(encoder.parameters(), lr=0.0002, betas=(0.5, 0.999))
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     optimizer_C = torch.optim.Adam(classifier.parameters(), lr=0.0002, betas=(0.5, 0.999))
@@ -224,10 +224,10 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             batch_size = 13
             noise = torch.randn(batch_size, 64).to(DEVICE)
             labels_onehot = F.one_hot(labels.long(), num_classes=2).float()
-            print(f'real_imgs eee ftrze{labels_onehot.dtype} and {noise.dtype}')
+            #print(f'real_imgs eee ftrze{labels_onehot.dtype} and {noise.dtype}')
             noise = torch.tensor(noise, dtype=torch.float32)
             with torch.no_grad():
-                    print(f'genrtjure ')
+                    
                     global_z = global_generator(noise, labels_onehot)
                 
 
