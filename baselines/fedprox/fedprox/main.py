@@ -16,8 +16,102 @@ from fedprox import client, server, utils
 from fedprox.client import gen_client_fn
 from fedprox.dataset import load_datasets
 from fedprox.utils import save_results_as_pickle
+import mlflow
+import time
+from pyngrok import ngrok
+import nest_asyncio
+import os
+import subprocess
+from fedprox.mlflowtracker import MLFlowTracker
 #from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
+
+import mlflow
+from pyngrok import ngrok
+import subprocess
+import os
+import time
+
+def setup_mlflow_colab(experiment_name: str = "GPAF_Medical_FL", ngrok_token: str = None):
+    """
+    Setup MLflow tracking for Google Colab environment
+    
+    Args:
+        experiment_name: Name of the MLflow experiment
+        ngrok_token: Your ngrok authentication token
+    
+    Returns:
+        MLFlowTracker instance
+    """
+    if ngrok_token:
+        # Set ngrok authentication token
+        ngrok.set_auth_token(ngrok_token)
+    
+    # Create a directory for MLflow files
+    os.makedirs("mlruns", exist_ok=True)
+    
+    # Kill any existing MLflow servers
+    try:
+        subprocess.run(['pkill', '-f', 'mlflow server'], stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    # Start MLflow server using subprocess
+    subprocess.Popen(['mlflow', 'server', '--host', '0.0.0.0', '--port', '5000'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+    
+    # Give the server a moment to start
+    time.sleep(5)
+    
+    try:
+        # Connect using ngrok
+        public_url = ngrok.connect(5000, bind_tls=True)
+        tracking_uri = public_url.public_url
+        print(f"MLflow Tracking URI: {tracking_uri}")
+        
+        # Configure MLflow
+        mlflow.set_tracking_uri(tracking_uri)
+        
+        # Create or get experiment
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            experiment_id = mlflow.create_experiment(experiment_name)
+            print(f"Created new experiment with ID: {experiment_id}")
+        else:
+            print(f"Using existing experiment with ID: {experiment.experiment_id}")
+            
+        # Initialize MLFlowTracker
+        tracker = MLFlowTracker(
+            experiment_name=experiment_name,
+            tracking_uri=tracking_uri,
+            tags={
+                "environment": "google_colab",
+                "framework": "flower",
+                "model_type": "GPAF",
+                "domain_shift": "enabled"
+            }
+        )
+        
+        print(f"\nMLflow UI is available at: {tracking_uri}")
+        print("You can access the MLflow UI through this URL during the Colab session")
+        
+        return tracker
+        
+    except Exception as e:
+        print(f"Error setting up ngrok connection: {e}")
+        print("Please make sure you have provided a valid ngrok authentication token")
+        raise
+
+def cleanup_mlflow():
+    """Cleanup MLflow server and ngrok tunnels"""
+    try:
+        # Kill MLflow server
+        subprocess.run(['pkill', '-f', 'mlflow server'], stderr=subprocess.DEVNULL)
+        # Stop all ngrok tunnels
+        ngrok.kill()
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
 
 def server_fn(context: Context) -> ServerAppComponents:
 
@@ -58,7 +152,12 @@ def main(cfg: DictConfig) -> None:
         batch_size=cfg.batch_size,
     )
 
-    # prepare function that will be used to spawn each client
+    # Initialize MLflow with authentication
+    NGROK_TOKEN="2rXqcyPnmP4dGvJxxvcatkcS8i0_7C1EFhK7TUEJmzYMUYRDt"
+    mlflow_tracker = setup_mlflow_colab(
+        experiment_name="GPAF_Medical_FL",
+        ngrok_token=NGROK_TOKEN
+    )    # prepare function that will be used to spawn each client
     client_fn = gen_client_fn(
         num_clients=cfg.num_clients,
         num_epochs=cfg.num_epochs,
@@ -66,6 +165,7 @@ def main(cfg: DictConfig) -> None:
         valloaders=valloaders,
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
+        mlflowtracker=mlflow_tracker
     
     )
     print(f'fffffff {client_fn}')

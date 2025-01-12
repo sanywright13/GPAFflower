@@ -30,7 +30,8 @@ class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
      data,validset,
      local_epochs,
-     client_id):
+     client_id,
+     mlflowtracker):
         self.encoder = encoder
         self.classifier = classifier
         self.discriminator = discriminator
@@ -45,7 +46,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
         self.global_generator = StochasticGenerator(noise_dim=64, label_dim=2, hidden_dim=256  , output_dim=64)
-        
+        self.mlflow_tracker=mlflowtracker
         # Initialize optimizers
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
         self.optimizer_classifier = torch.optim.Adam(self.classifier.parameters())
@@ -116,8 +117,27 @@ class FederatedClient(fl.client.NumPyClient):
         print(f'===evaluate client=== {type(parameters)}')
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
+
+        # Track training metrics
+        if self.mlflow_tracker:
+            metrics = {
+                "val_loss": loss,
+                "val_accuracy":accuracy,
+                #"local_batch_count": len(self.traindata)
+            }
+            self.mlflow_tracker.log_client_metrics(
+                client_id=self.client_id,
+                round_number=config.get("round", 0),
+                metrics=metrics,
+                prefix="eval"
+            )
+            
+           
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
+    
+    
+    
     def load_generator_params(self, generator_params: List[np.ndarray]):
         """Load generator parameters from server."""
         try:
@@ -207,7 +227,8 @@ class FederatedClient(fl.client.NumPyClient):
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')
         #print(f'num_encoder_params {type(num_encoder_params)}')
-
+        
+        
         # Fixed return statement
         return (
         self.get_parameters(),
@@ -226,6 +247,8 @@ def gen_client_fn(
     trainloaders: List[DataLoader],
     valloaders: List[DataLoader],
     learning_rate: float,
+    mlflowtracker
+    
 
 ) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
    
@@ -263,7 +286,8 @@ def gen_client_fn(
             trainloader,
             valloader,
             num_epochs,
-            cid
+            cid,
+            mlflowtracker
 
         )
         print(f' sss {numpy_client}')
