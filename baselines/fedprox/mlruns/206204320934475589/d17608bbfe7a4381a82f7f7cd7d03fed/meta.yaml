@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/206204320934475589/d17608bbfe7a4381a82f7f7cd7d03fed/artifacts
+end_time: 1736804400370
+entry_point_name: ''
+experiment_id: '206204320934475589'
+lifecycle_stage: active
+run_id: d17608bbfe7a4381a82f7f7cd7d03fed
+run_name: client_2
+run_uuid: d17608bbfe7a4381a82f7f7cd7d03fed
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736804400334
+status: 3
+tags: []
+user_id: root

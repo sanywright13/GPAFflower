@@ -56,8 +56,23 @@ def get_server_fn(mlflow=None):
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
 
-  
-    server_fn = get_server_fn(mlflow=mlflow)
+    
+    server_fn = get_server_fn()
+    # Create mlruns directory
+    os.makedirs("fedprox/mlruns", exist_ok=True)
+    
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("file://" + os.path.abspath("fedprox/mlruns"))
+    
+    # Create or get experiment
+    experiment_name = "GPAF_Medical_FL17"
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        experiment_id = mlflow.create_experiment(experiment_name)
+        print(f"Created new experiment with ID: {experiment_id}")
+    else:
+        print(f"Using existing experiment with ID: {experiment.experiment_id}")
+    
     # print config structured as YAML
     print(OmegaConf.to_yaml(cfg))
 

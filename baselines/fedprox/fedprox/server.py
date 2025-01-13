@@ -39,15 +39,26 @@ from flwr.common import (
 class GPAFStrategy(FedAvg):
     def __init__(
         self,
+      
         num_classes: int=2,
         fraction_fit: float = 1.0,
         min_fit_clients: int = 2,
             min_evaluate_clients : int =0,  # No clients for evaluation
    evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-   mlflow=None  # Change this from MLFlowTracker to mlflow module
+   
     ) -> None:
      super().__init__()
-     experiment = mlflow.get_experiment_by_name("GPAF_Medical_FL1")
+     experiment_name = "GPAF_Medical_FL17"
+
+     experiment = mlflow.get_experiment_by_name(experiment_name)
+     if experiment is None:
+        experiment_id = mlflow.create_experiment(experiment_name)
+        print(f"Created new experiment with ID: {experiment_id}")
+        experiment = mlflow.get_experiment(experiment_id)
+     else:
+        print(f"Using existing experiment with ID: {experiment.experiment_id}")
+    
+     #experiment_id = mlflow.create_experiment(experiment_name)
      with mlflow.start_run(experiment_id=experiment.experiment_id, run_name="server") as run:
         self.server_run_id = run.info.run_id
         print(f"Created MLflow run for server: {self.server_run_id}")
@@ -70,12 +81,12 @@ class GPAFStrategy(FedAvg):
         )
         #self.generator = StochasticGenerator(self.latent_dim, self.num_classes)
         self.optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.001)
-        
+        self.mlflow = mlflow
         # Initialize label_probs with a default uniform distribution
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
         self.client_classifiers = {}
-        experiment = mlflow.get_experiment_by_name("GPAF_Medical_FL")
+       
         
 
     def initialize_parameters(self, client_manager):

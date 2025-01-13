@@ -236,7 +236,11 @@ def gen_client_fn(
     def client_fn(context: Context) -> Client:
         # Access the client ID (cid) from the context
       cid = context.node_config["partition-id"]
-      experiment = mlflow.get_experiment_by_name("GPAF_Medical_FL1")
+      # Create or get experiment
+      experiment_name = "GPAF_Medical_FL17"
+      experiment = mlflow.get_experiment_by_name(experiment_name)
+      
+    
       with mlflow.start_run(experiment_id=experiment.experiment_id, run_name=f"client_{cid}") as run:
         run_id = run.info.run_id
         print(f"Created MLflow run for client {cid}: {run_id}")
