@@ -31,7 +31,7 @@ class FederatedClient(fl.client.NumPyClient):
      data,validset,
      local_epochs,
      client_id,
-     mlflowtracker):
+      mlflow=None):
         self.encoder = encoder
         self.classifier = classifier
         self.discriminator = discriminator
@@ -46,7 +46,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
         self.global_generator = StochasticGenerator(noise_dim=64, label_dim=2, hidden_dim=256  , output_dim=64)
-        self.mlflow_tracker=mlflowtracker
+        self. mlflow= mlflow
         # Initialize optimizers
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
         self.optimizer_classifier = torch.optim.Adam(self.classifier.parameters())
@@ -118,21 +118,18 @@ class FederatedClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
 
-        # Track training metrics
-        if self.mlflow_tracker:
-            metrics = {
-                "val_loss": loss,
-                "val_accuracy":accuracy,
-                #"local_batch_count": len(self.traindata)
-            }
-            self.mlflow_tracker.log_client_metrics(
-                client_id=self.client_id,
-                round_number=config.get("round", 0),
-                metrics=metrics,
-                prefix="eval"
-            )
-            
-           
+        # Log evaluation metrics using mlflow directly
+        if self.mlflow:
+            self.mlflow.log_metrics({
+                f"client_{self.client_id}/eval_loss": float(loss),
+                f"client_{self.client_id}/eval_accuracy": float(accuracy),
+               # f"client_{self.client_id}/eval_samples": samples
+            }, step=config.get("round", 0))
+        # Log metrics in a way that makes them easy to plot together
+            self.mlflow.log_metrics({
+                f"accuracy_client_{self.client_id}": float(accuracy)
+            }, step=config.get("round", 0))
+               
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
     
@@ -183,9 +180,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         # Load generator parameters if provided
        
-        # Access serialized generator parameters from config
         generator_params_serialized = config.get("generator_params", "")
-        #print(f' generalized globl {generator_params_serialized}')
         # Deserialize generator parameters from JSON string
         generator_params_list = json.loads(generator_params_serialized)
 
@@ -206,36 +201,20 @@ class FederatedClient(fl.client.NumPyClient):
         label_distribution = compute_label_distribution(all_labels, self.num_classes)
         # Serialize the label distribution to a JSON string
         label_distribution_str = json.dumps(label_distribution)
-        #global representation
-        '''
-        z_representation_serialized = config.get("z_representation", None)
-        z_representation = np.array(json.loads(z_representation_serialized))  # Convert JSON string to NumPy array
-
-        if z_representation is not None:
-            # Convert z representation from list to numpy array and then to PyTorch tensor
-            self.z = torch.tensor(z_representation, dtype=torch.float32).to(self.device)
-        else:
-            print("Warning: No z representation provided in config.")
-            self.z = None
-        '''
-        # Training loop
-        # Rest of training loop... call  train function
+       
         train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator)
-        #print(f'label_distribution_str {type(label_distribution_str)}')
-        #print(f'len(self.traindata) {type(len(self.traindata))}')
-        #these returned variables send directly to the server and stored in FitRes
+      
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
-        #print(f'client parameters {self.get_parameters()}')
-        #print(f'num_encoder_params {type(num_encoder_params)}')
-        
-        
+        #print(f'client parameters {self.get_parameters()}')        
+      
         # Fixed return statement
         return (
         self.get_parameters(),
         len(self.traindata),
         {
             "num_encoder_params": num_encoder_params,
-            "label_distribution": label_distribution_str
+            "label_distribution": label_distribution_str,
+        
         }
     )
 
@@ -253,7 +232,7 @@ def gen_client_fn(
 ) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
    
     # be a straggler. This is done so at each round the proportion of straggling
-    print('==== ffgtt')
+    
     def client_fn(context: Context) -> Client:
         # Access the client ID (cid) from the context
         cid = context.node_config["partition-id"]
@@ -278,7 +257,7 @@ def gen_client_fn(
         trainloader = trainloaders[int(cid)]
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=10
+        num_epochs=4
         numpy_client =  FederatedClient(
             encoder,
             classifier,
@@ -290,7 +269,6 @@ def gen_client_fn(
             mlflowtracker
 
         )
-        print(f' sss {numpy_client}')
         # Convert NumpyClient to Client
         return numpy_client.to_client()
     return client_fn

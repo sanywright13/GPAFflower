@@ -44,6 +44,7 @@ class GPAFStrategy(FedAvg):
         min_fit_clients: int = 2,
             min_evaluate_clients : int =0,  # No clients for evaluation
    evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
+   mlflow=None  # Change this from MLFlowTracker to mlflow module
     ) -> None:
         super().__init__()
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
@@ -69,7 +70,7 @@ class GPAFStrategy(FedAvg):
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
         self.client_classifiers = {}
-
+        self.mlflow = mlflow  # Store mlflow module reference
 
     def initialize_parameters(self, client_manager):
         print("=== Initializing Parameters ===")
@@ -110,6 +111,43 @@ class GPAFStrategy(FedAvg):
       num_clients = client_manager.num_available()
       return max(int(num_clients * self.fraction_evaluate), self.min_evaluate_clients), self.min_available_clients
     #1first run
+    def aggregate_evaluate(self, server_round: int, results, failures):
+        """Aggregate evaluation results."""
+        if not results:
+            return None, {}
+
+        # Extract all accuracies from evaluation
+        accuracies = {}
+        for client_proxy, eval_res in results:
+            client_id = client_proxy.cid
+            accuracy = eval_res.metrics.get("accuracy", 0.0)
+            accuracies[f"client_{client_id}"] = accuracy
+            # Log in a format that will show up as separate lines in MLflow
+            self.mlflow.log_metrics({
+                    f"accuracy_client_{client_id}": accuracy
+                }, step=server_round)
+
+            
+           
+        # Calculate average accuracy
+        avg_accuracy = sum(accuracies.values()) / len(accuracies)
+        '''
+        # Log metrics
+        if self.mlflow:
+            metrics_dict = {
+                "round": server_round,
+                "avg_accuracy": avg_accuracy,
+            }
+            # Add individual client accuracies
+            metrics_dict.update({f"eval_accuracy_{k}": v for k, v in accuracies.items()})
+            
+            self.mlflow.log_metrics(metrics_dict, step=server_round)
+            
+            print(f"\nRound {server_round} Evaluation Summary:")
+            print(f"Average Accuracy: {avg_accuracy:.4f}")
+           
+        '''
+        return avg_accuracy, {"accuracy": avg_accuracy}
     def configure_evaluate(
       self, server_round: int, parameters: Parameters, client_manager: ClientManager
 ) -> List[Tuple[ClientProxy, EvaluateIns]]:
@@ -171,7 +209,7 @@ class GPAFStrategy(FedAvg):
         
       # Convert generator parameters to NumPy arrays
       generator_numpy_params = [param.cpu().detach().numpy() for param in generator_state.values()]
-
+      
       # Serialize generator parameters into a JSON string
       generator_params_serialized = json.dumps([param.tolist() for param in generator_numpy_params])
       config = {
@@ -211,12 +249,16 @@ class GPAFStrategy(FedAvg):
         global_label_counts = {}
         total_samples = 0
 
-         # Aggregate label counts
+        # Aggregate label counts
+        accuracy_metrics = {}
         for client_proxy, fit_res in results:
                 # Parse label distribution from metrics
                 label_distribution_str = fit_res.metrics.get("label_distribution", "{}")
                 label_distribution = json.loads(label_distribution_str)
                 client_num_samples = fit_res.num_examples
+                accuracy = fit_res.metrics.get("accuracy", 0.0)
+                #client_id = client_proxy.cid  # This is how we access the client ID
+                #accuracy_metrics[f"accuracy_client_{client_id}"] = accuracy
                 
                 # Accumulate label counts
                 for label, prob in label_distribution.items():
@@ -224,7 +266,13 @@ class GPAFStrategy(FedAvg):
                     count = int(float(prob) * client_num_samples)
                     global_label_counts[label] = global_label_counts.get(label, 0) + count
                     total_samples += count
-
+        # Log all accuracies at once for easy comparison
+        """
+        self.mlflow.log_metrics(accuracy_metrics, step=server_round)
+        # Calculate and log average accuracy
+        avg_accuracy = sum(accuracy_metrics.values()) / len(accuracy_metrics)
+        self.mlflow.log_metric("average_accuracy", avg_accuracy, step=server_round)
+        """    
         # Compute global label probabilities
         if total_samples > 0:
             self.label_probs = {
@@ -281,6 +329,14 @@ class GPAFStrategy(FedAvg):
         #aggregated_params = self._aggregate_parameters(client_parameters)
         # Get generator parameters to send to clients
         #self.generator_params = self.get_generator_parameters()
+        # Log metrics using mlflow directly
+        if self.mlflow:
+            self.mlflow.log_metrics({
+                "round": server_round,
+                "num_clients": len(results),
+                "num_failures": len(failures),
+                "total_samples": sum(r.num_examples for _, r in results)
+            }, step=server_round)
         return ndarrays_to_parameters(aggregated_params),{}
         
     def _fedavg_parameters(
@@ -419,6 +475,13 @@ class GPAFStrategy(FedAvg):
           optimizer.step()
             
           epoch_loss += loss.item()
+          # Log metrics using mlflow directly
+          if self.mlflow:
+                self.mlflow.log_metrics({
+                    "generator_loss": epoch_loss,
+                    "epoch": epoch,
+                }, step=epoch)
+
           print(f"Generator Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
             
         save_dir = "z_representations"
