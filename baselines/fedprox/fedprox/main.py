@@ -42,7 +42,7 @@ def get_server_fn(mlflow=None):
         min_fit_clients=3,  # Set minimum number of clients for training
         min_evaluate_clients=2,
         #on_fit_config_fn=fit_config_fn,
-        mlflow=mlflow
+     
       )
 
       # Configure the server for 5 rounds of training
@@ -55,10 +55,8 @@ def get_server_fn(mlflow=None):
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
-  mlflow, experiment_id, server1 = setup_tracking()
 
-  with mlflow.start_run(experiment_id=experiment_id) as run:
-    print(f"MLflow run ID: {run.info.run_id}")
+  
     server_fn = get_server_fn(mlflow=mlflow)
     # print config structured as YAML
     print(OmegaConf.to_yaml(cfg))
@@ -80,7 +78,7 @@ def main(cfg: DictConfig) -> None:
         valloaders=valloaders,
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
-        mlflowtracker=mlflow
+       
     )
     print(f'fffffff {client_fn}')
     # get function that will executed by the strategy's evaluate() method

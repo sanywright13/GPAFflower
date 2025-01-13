@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/fedprox/mlruns/448519237639398741/b880d7a1b815405faf06a39a464de73b/artifacts
+end_time: 1736799023130
+entry_point_name: ''
+experiment_id: '448519237639398741'
+lifecycle_stage: active
+run_id: b880d7a1b815405faf06a39a464de73b
+run_name: dazzling-sow-408
+run_uuid: b880d7a1b815405faf06a39a464de73b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736799023077
+status: 4
+tags: []
+user_id: root

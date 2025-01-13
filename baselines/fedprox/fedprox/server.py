@@ -46,7 +46,12 @@ class GPAFStrategy(FedAvg):
    evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
    mlflow=None  # Change this from MLFlowTracker to mlflow module
     ) -> None:
-        super().__init__()
+     super().__init__()
+     experiment = mlflow.get_experiment_by_name("GPAF_Medical_FL1")
+     with mlflow.start_run(experiment_id=experiment.experiment_id, run_name="server") as run:
+        self.server_run_id = run.info.run_id
+        print(f"Created MLflow run for server: {self.server_run_id}")
+        self.mlflow = mlflow  # Store mlflow module reference    
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
@@ -70,7 +75,8 @@ class GPAFStrategy(FedAvg):
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
         self.client_classifiers = {}
-        self.mlflow = mlflow  # Store mlflow module reference
+        experiment = mlflow.get_experiment_by_name("GPAF_Medical_FL")
+        
 
     def initialize_parameters(self, client_manager):
         print("=== Initializing Parameters ===")

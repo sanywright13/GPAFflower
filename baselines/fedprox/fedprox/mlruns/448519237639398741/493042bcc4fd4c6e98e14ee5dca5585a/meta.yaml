@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/fedprox/mlruns/448519237639398741/493042bcc4fd4c6e98e14ee5dca5585a/artifacts
+end_time: 1736798959962
+entry_point_name: ''
+experiment_id: '448519237639398741'
+lifecycle_stage: active
+run_id: 493042bcc4fd4c6e98e14ee5dca5585a
+run_name: glamorous-turtle-384
+run_uuid: 493042bcc4fd4c6e98e14ee5dca5585a
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736798959905
+status: 4
+tags: []
+user_id: root

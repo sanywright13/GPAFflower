@@ -226,18 +226,20 @@ def gen_client_fn(
     trainloaders: List[DataLoader],
     valloaders: List[DataLoader],
     learning_rate: float,
-    mlflowtracker
+
     
 
 ) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
-   
+    import mlflow
     # be a straggler. This is done so at each round the proportion of straggling
     
     def client_fn(context: Context) -> Client:
         # Access the client ID (cid) from the context
-        cid = context.node_config["partition-id"]
-
-        print(f"Client ID: {cid}")
+      cid = context.node_config["partition-id"]
+      experiment = mlflow.get_experiment_by_name("GPAF_Medical_FL1")
+      with mlflow.start_run(experiment_id=experiment.experiment_id, run_name=f"client_{cid}") as run:
+        run_id = run.info.run_id
+        print(f"Created MLflow run for client {cid}: {run_id}")
         device = torch.device("cpu")
         #get the model 
         #net = instantiate(model).to(device)
@@ -247,7 +249,7 @@ def gen_client_fn(
         hidden_dim = 128
         latent_dim = 64
         num_classes = 2  # Example: MNIST has 10 classes
- 
+        
         encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
         #print(f' clqssifier intiliation {classifier}')
@@ -266,7 +268,7 @@ def gen_client_fn(
             valloader,
             num_epochs,
             cid,
-            mlflowtracker
+            mlflow
 
         )
         # Convert NumpyClient to Client
