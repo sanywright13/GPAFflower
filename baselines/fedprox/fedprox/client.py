@@ -12,6 +12,8 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 import json
 from flwr.client import NumPyClient, Client
+from flwr.common import ConfigsRecord, MetricsRecord, ParametersRecord
+from  mlflow.tracking import MlflowClient
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
@@ -31,7 +33,8 @@ class FederatedClient(fl.client.NumPyClient):
      data,validset,
      local_epochs,
      client_id,
-      mlflow=None):
+      mlflow,
+      run_id):
         self.encoder = encoder
         self.classifier = classifier
         self.discriminator = discriminator
@@ -51,7 +54,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
         self.optimizer_classifier = torch.optim.Adam(self.classifier.parameters())
         self.optimizer_discriminator = torch.optim.Adam(self.discriminator.parameters())
-        
+        self.run_id=run_id
         # Generator will be updated from server state
         #self.generator = None
     
@@ -119,13 +122,13 @@ class FederatedClient(fl.client.NumPyClient):
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
 
         # Log evaluation metrics using mlflow directly
-        if self.mlflow:
+        with self.mlflow.start_run(run_id=self.run_id):  
+
             self.mlflow.log_metrics({
                 f"client_{self.client_id}/eval_loss": float(loss),
                 f"client_{self.client_id}/eval_accuracy": float(accuracy),
                # f"client_{self.client_id}/eval_samples": samples
             }, step=config.get("round", 0))
-        # Log metrics in a way that makes them easy to plot together
             self.mlflow.log_metrics({
                 f"accuracy_client_{self.client_id}": float(accuracy)
             }, step=config.get("round", 0))
@@ -140,18 +143,7 @@ class FederatedClient(fl.client.NumPyClient):
         try:
             # Create state dict from parameters
             state_dict = {}
-            '''
-            param_shapes = [
-                # Add your generator's parameter shapes here
-                ('noise_proj.weight', (256, 64)),
-                ('noise_proj.bias', (256,)),
-                ('label_proj.weight', (256, 2)),
-                ('label_proj.bias', (256,)),
-                ('hidden.weight', (64, 512)),
-                ('hidden.bias', (64,)),
-                # Add other layers as needed
-            ]
-            '''
+            
             # Create a list of parameter shapes from the state_dict
             param_shapes = [(name, param.shape) for name, param in state_dict.items()]
             idx = 0
@@ -232,16 +224,24 @@ def gen_client_fn(
 ) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
     import mlflow
     # be a straggler. This is done so at each round the proportion of straggling
-    
+    client = MlflowClient()
     def client_fn(context: Context) -> Client:
         # Access the client ID (cid) from the context
       cid = context.node_config["partition-id"]
       # Create or get experiment
       experiment_name = "GPAF_Medical_FL17"
       experiment = mlflow.get_experiment_by_name(experiment_name)
-      
+      if "mlflow_id" not in context.state.configs_records:
+            context.state.configs_records["mlflow_id"] = ConfigsRecord()
+
+      #check the client id has a run id in the context.state
+      run_ids = context.state.configs_records["mlflow_id"]
+
+      if str(cid) not in run_ids:
+            run = client.create_run(experiment.experiment_id)
+            run_ids[str(cid)] = [run.info.run_id]
     
-      with mlflow.start_run(experiment_id=experiment.experiment_id, run_name=f"client_{cid}") as run:
+      with mlflow.start_run(experiment_id=experiment.experiment_id, run_id=run_ids[str(cid)][0],nested=True) as run:
         run_id = run.info.run_id
         print(f"Created MLflow run for client {cid}: {run_id}")
         device = torch.device("cpu")
@@ -273,6 +273,8 @@ def gen_client_fn(
             num_epochs,
             cid,
             mlflow
+            ,
+            run_id
 
         )
         # Convert NumpyClient to Client

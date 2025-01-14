@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/442089554940033388/4c969f36723448f59a0fff925acba48c/artifacts
+end_time: 1736861132358
+entry_point_name: ''
+experiment_id: '442089554940033388'
+lifecycle_stage: active
+run_id: 4c969f36723448f59a0fff925acba48c
+run_name: rebellious-moth-316
+run_uuid: 4c969f36723448f59a0fff925acba48c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736861065646
+status: 3
+tags: []
+user_id: unknown

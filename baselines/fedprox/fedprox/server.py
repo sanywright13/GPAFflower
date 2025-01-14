@@ -16,7 +16,6 @@ from flwr.server.strategy import Strategy,FedAvg
 from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
 from fedprox.utils import save_z_to_file
 from flwr.server.client_proxy import ClientProxy
-
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -47,22 +46,30 @@ class GPAFStrategy(FedAvg):
    evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
    
     ) -> None:
-     super().__init__()
-     experiment_name = "GPAF_Medical_FL17"
+        super().__init__()
+        experiment_name = "GPAF_Medical_FL17"
 
-     experiment = mlflow.get_experiment_by_name(experiment_name)
-     if experiment is None:
-        experiment_id = mlflow.create_experiment(experiment_name)
-        print(f"Created new experiment with ID: {experiment_id}")
-        experiment = mlflow.get_experiment(experiment_id)
-     else:
-        print(f"Using existing experiment with ID: {experiment.experiment_id}")
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+        if experiment is None:
+         experiment_id = mlflow.create_experiment(experiment_name)
+         print(f"Created new experiment with ID: {experiment_id}")
+         experiment = mlflow.get_experiment(experiment_id)
+        else:
+         print(f"Using existing experiment with ID: {experiment.experiment_id}")
     
-     #experiment_id = mlflow.create_experiment(experiment_name)
-     with mlflow.start_run(experiment_id=experiment.experiment_id, run_name="server") as run:
-        self.server_run_id = run.info.run_id
+        # Store MLflow reference
+        self.mlflow = mlflow
+        #experiment_id = mlflow.create_experiment(experiment_name)
+        with mlflow.start_run(experiment_id=experiment.experiment_id, run_name="server") as run:
+         self.server_run_id = run.info.run_id
+         # Log server parameters
+         mlflow.log_params({
+                "num_classes": num_classes,
+                "min_fit_clients": min_fit_clients,
+                "fraction_fit": fraction_fit
+            })
+
         print(f"Created MLflow run for server: {self.server_run_id}")
-        self.mlflow = mlflow  # Store mlflow module reference    
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
@@ -81,7 +88,6 @@ class GPAFStrategy(FedAvg):
         )
         #self.generator = StochasticGenerator(self.latent_dim, self.num_classes)
         self.optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.001)
-        self.mlflow = mlflow
         # Initialize label_probs with a default uniform distribution
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
@@ -134,8 +140,10 @@ class GPAFStrategy(FedAvg):
             return None, {}
 
         # Extract all accuracies from evaluation
-        accuracies = {}
-        for client_proxy, eval_res in results:
+        with self.mlflow.start_run(run_id=self.server_run_id):  
+
+         accuracies = {}
+         for client_proxy, eval_res in results:
             client_id = client_proxy.cid
             accuracy = eval_res.metrics.get("accuracy", 0.0)
             accuracies[f"client_{client_id}"] = accuracy
@@ -347,7 +355,8 @@ class GPAFStrategy(FedAvg):
         # Get generator parameters to send to clients
         #self.generator_params = self.get_generator_parameters()
         # Log metrics using mlflow directly
-        if self.mlflow:
+        with self.mlflow.start_run(run_id=self.server_run_id):  
+
             self.mlflow.log_metrics({
                 "round": server_round,
                 "num_clients": len(results),
@@ -427,10 +436,8 @@ class GPAFStrategy(FedAvg):
     
 
     def _train_generator(self,label_probs, classifier_params:  List[NDArrays]):
-        """Train the generator using the ensemble of client classifiers."""
-        # Sample labels from the global distribution
-        # Loss criterion
-        # Hyperparameters
+      """Train the generator using the ensemble of client classifiers."""
+      with self.mlflow.start_run(run_id=self.server_run_id):  
         noise_dim = 64
         label_dim = 2
         hidden_dim = 256
@@ -493,8 +500,7 @@ class GPAFStrategy(FedAvg):
             
           epoch_loss += loss.item()
           # Log metrics using mlflow directly
-          if self.mlflow:
-                self.mlflow.log_metrics({
+          self.mlflow.log_metrics({
                     "generator_loss": epoch_loss,
                     "epoch": epoch,
                 }, step=epoch)

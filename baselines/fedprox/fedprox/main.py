@@ -59,10 +59,10 @@ def main(cfg: DictConfig) -> None:
     
     server_fn = get_server_fn()
     # Create mlruns directory
-    os.makedirs("fedprox/mlruns", exist_ok=True)
+    os.makedirs("mlruns", exist_ok=True)
     
     # Set up MLflow tracking
-    mlflow.set_tracking_uri("file://" + os.path.abspath("fedprox/mlruns"))
+    mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
     
     # Create or get experiment
     experiment_name = "GPAF_Medical_FL17"
@@ -144,7 +144,7 @@ def main(cfg: DictConfig) -> None:
     # save results as a Python pickle using a file_path
     # the directory created by Hydra for each run
     save_results_as_pickle(history, file_path=save_path, extra_results={})
-    server1.keep_alive()
+    #server.keep_alive()
     
 
 if __name__ == "__main__":
