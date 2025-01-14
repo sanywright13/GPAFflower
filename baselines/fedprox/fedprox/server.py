@@ -185,11 +185,14 @@ class GPAFStrategy(FedAvg):
       clients = client_manager.sample(
         num_clients=sample_size, min_num_clients=min_num_clients
     )
-
+      evaluate_config = {"server_round": server_round}  # Pass the round number in config
       # Create EvaluateIns for each client
+      '''
       evaluate_config = (
         self.on_evaluate_config_fn(server_round) if self.on_evaluate_config_fn is not None else {}
       )
+      '''
+      print(f"Server sending round number: {server_round}")  # Debug print
       evaluate_ins = EvaluateIns(parameters, evaluate_config)
      
       # Return client-EvaluateIns pairs

@@ -120,18 +120,19 @@ class FederatedClient(fl.client.NumPyClient):
         print(f'===evaluate client=== {type(parameters)}')
         self.set_parameters(parameters)
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
-
+        #get the round in config
         # Log evaluation metrics using mlflow directly
         with self.mlflow.start_run(run_id=self.run_id):  
-
+            print(f' config client {config.get("server_round")}')
             self.mlflow.log_metrics({
                 f"client_{self.client_id}/eval_loss": float(loss),
                 f"client_{self.client_id}/eval_accuracy": float(accuracy),
+                #f"client_round":float(round_number),
                # f"client_{self.client_id}/eval_samples": samples
-            }, step=config.get("round", 0))
-            self.mlflow.log_metrics({
-                f"accuracy_client_{self.client_id}": float(accuracy)
-            }, step=config.get("round", 0))
+            }, step=config.get("server_round"))
+            # Also log in format for easier plotting
+           
+              
                
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
@@ -263,7 +264,7 @@ def gen_client_fn(
         trainloader = trainloaders[int(cid)]
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=4
+        num_epochs=2
         numpy_client =  FederatedClient(
             encoder,
             classifier,
