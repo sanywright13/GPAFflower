@@ -6,7 +6,7 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, random_split
 
-from fedprox.dataset_preparation import _partition_data,build_transform
+from fedprox.dataset_preparation import _partition_data,build_transform, create_domain_shifted_loaders
 
 
 def load_datasets(  # pylint: disable=too-many-arguments
@@ -15,6 +15,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
     val_ratio: float = 0.1,
     batch_size: int = 13,
     seed: Optional[int] = 42,
+    domain_shift=False
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create the dataloaders to be fed into the model.
 
@@ -40,7 +41,19 @@ def load_datasets(  # pylint: disable=too-many-arguments
     """
     print(f"Dataset partitioning config: {config}")
     transform = build_transform()
-    datasets, testset ,validsets= _partition_data(
+    
+    #print(f' train loader example {datasets[0]}')
+    # Create domain-shifted dataloaders
+    if domain_shift==True:
+      trainloaders, valloaders, testset = create_domain_shifted_loaders(
+         config.dataset_name,
+        num_clients,
+        batch_size
+        ,
+        transform
+      )
+    else:
+      datasets, testset ,validsets= _partition_data(
         num_clients,
         config.dataset_name,
         transform=transform,
@@ -48,20 +61,16 @@ def load_datasets(  # pylint: disable=too-many-arguments
         balance=config.balance,
         power_law=config.power_law,
         seed=seed,
+        domain_shift=domain_shift
        
     )
-    #print(f' test shape data {testset[0]}')
-    # Split each partition into train/val and create DataLoader
-    trainloaders = []
-    valloaders = []
-    #create data loaders
-    
-    testloaders=DataLoader(testset, batch_size=batch_size)
-    #print(f' train loader example {datasets[0]}')
-    
-    for i,trainset in enumerate(datasets):
+      trainloaders = []
+      valloaders = []
+      for i,trainset in enumerate(datasets):
         
         trainloaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True))
         valloaders.append(DataLoader(validsets[i], batch_size=batch_size))
     
+    testloaders=DataLoader(testset, batch_size=batch_size)
+
     return trainloaders, valloaders,testloaders

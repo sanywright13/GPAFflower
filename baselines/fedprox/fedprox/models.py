@@ -216,24 +216,19 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
             images, labels = batch
-            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            images, labels = images.to(DEVICE , dtype=torch.float32), labels.to(DEVICE  , dtype=torch.long)
             labels=labels.squeeze(1)
             real_imgs = images.to(DEVICE)
 
             # Generate global z representation
             batch_size = 13
-            noise = torch.randn(batch_size, 64).to(DEVICE)
+            noise = torch.randn(batch_size, 64, dtype=torch.float32).to(DEVICE)
             labels_onehot = F.one_hot(labels.long(), num_classes=2).float()
             #print(f'real_imgs eee ftrze{labels_onehot.dtype} and {noise.dtype}')
             noise = torch.tensor(noise, dtype=torch.float32)
             with torch.no_grad():
                     
                     global_z = global_generator(noise, labels_onehot)
-                
-
-
-            
-          
             # ---------------------
             # Train Discriminator
             # ---------------------
@@ -242,7 +237,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             # Real loss: Discriminator should classify global z as 1
             
             if global_z is not None:
-                    real_labels = torch.ones(global_z.size(0), 1, device=DEVICE)  # Real labels
+                    real_labels = torch.ones(global_z.size(0), 1, device=DEVICE, dtype=torch.float32)  # Real labels
                     #print(f' z shape on train {real_labels.shape}')
                     real_loss = criterion(discriminator(global_z), real_labels)
                     #print(f' dis glob z shape on train {discriminator(global_z).shape}')
@@ -255,7 +250,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             
             # Fake loss: Discriminator should classify local features as 0
             #local_features = encoder(real_imgs)
-            fake_labels = torch.zeros(real_imgs.size(0), 1)  # Fake labels
+            fake_labels = torch.zeros(real_imgs.size(0), 1 , dtype=torch.float32)  # Fake labels
             fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
             #print(f'local train feat {discriminator(local_features.detach()).shape}')
             #print(f'local encoder features {local_features}')
@@ -317,7 +312,7 @@ def test_gpaf(encoder,classifier, testloader,device):
         print(f' ==== client test func')
         with torch.no_grad():
             for inputs, labels in testloader:
-                inputs, labels = inputs.to(device), labels.to(device)
+                inputs, labels = inputs.to(device , dtype=torch.float32), labels.to(device ,dtype=torch.long)
                 labels=labels.squeeze(1)
                 # Forward pass
                 features = encoder(inputs)

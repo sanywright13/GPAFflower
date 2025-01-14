@@ -31,6 +31,98 @@ from pyngrok import ngrok
 import subprocess
 import os
 import time
+import matplotlib.pyplot as plt
+import seaborn as sns
+import torch
+import numpy as np
+from typing import List
+from torch.utils.data import DataLoader
+
+def visualize_intensity_distributions(trainloaders: List[DataLoader], num_clients: int):
+    """
+    Visualize pixel intensity distributions across different clients.
+    
+    Args:
+        trainloaders: List of DataLoaders for each client
+        num_clients: Number of clients
+    """
+    plt.figure(figsize=(12, 6))
+    
+    # Use different colors for each client
+    colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'gray']
+    
+    # Create subplot for the distributions
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+    
+    # Store statistics for each client
+    stats = {}
+    
+    # Plot intensity distributions
+    for client_id in range(num_clients):
+        # Get a batch of images
+        images, _ = next(iter(trainloaders[client_id]))
+        
+        # Convert to numpy and flatten
+        images_flat = images.view(-1).cpu().numpy()
+        
+        # Calculate statistics
+        mean_val = np.mean(images_flat)
+        std_val = np.std(images_flat)
+        median_val = np.median(images_flat)
+        
+        stats[f'Client {client_id}'] = {
+            'mean': mean_val,
+            'std': std_val,
+            'median': median_val
+        }
+        
+        # Plot distribution
+        sns.kdeplot(
+            data=images_flat,
+            ax=ax1,
+            color=colors[client_id % len(colors)],
+            label=f'Client {client_id}',
+            linewidth=2
+        )
+    
+    ax1.set_title('Pixel Intensity Distributions Across Clients', fontsize=12)
+    ax1.set_xlabel('Pixel Value', fontsize=10)
+    ax1.set_ylabel('Density', fontsize=10)
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Create statistics table
+    stats_data = np.array([[
+        stats[f'Client {i}']['mean'],
+        stats[f'Client {i}']['std'],
+        stats[f'Client {i}']['median']
+    ] for i in range(num_clients)])
+    
+    # Plot statistics as a heatmap
+    sns.heatmap(
+        stats_data.T,
+        ax=ax2,
+        xticklabels=[f'Client {i}' for i in range(num_clients)],
+        yticklabels=['Mean', 'Std Dev', 'Median'],
+        cmap='YlOrRd',
+        annot=True,
+        fmt='.4f',
+        cbar_kws={'label': 'Value'}
+    )
+    ax2.set_title('Statistical Measures of Pixel Distributions', fontsize=12)
+    
+    plt.tight_layout()
+    plt.savefig('intensity_distributions.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # Print detailed statistics
+    print("\nDetailed Statistics:")
+    print("-" * 50)
+    for client in stats:
+        print(f"\n{client}:")
+        for metric, value in stats[client].items():
+            print(f"  {metric}: {value:.4f}")
+
 def get_server_fn(mlflow=None):
  """Create server function with MLflow tracking."""
  def server_fn(context: Context) -> ServerAppComponents:
@@ -81,8 +173,11 @@ def main(cfg: DictConfig) -> None:
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
+        domain_shift=True
     )
-
+    #visualize client pixel intensity 
+    visualize_intensity_distributions(trainloaders,3)
+ 
     # Initialize MLflow with authentication
     # prepare function that will be used to spawn each client
     #with mlflow.start_run(experiment_id=experiment_id):
@@ -146,7 +241,7 @@ def main(cfg: DictConfig) -> None:
     save_results_as_pickle(history, file_path=save_path, extra_results={})
     #server.keep_alive()
     
-
+   
 if __name__ == "__main__":
     
     main()

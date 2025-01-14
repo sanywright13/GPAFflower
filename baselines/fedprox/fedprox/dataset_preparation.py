@@ -10,6 +10,8 @@ from torch.utils.data import ConcatDataset, Dataset, Subset, random_split
 from torchvision.datasets import MNIST
 import os
 import torch.utils.data as data
+
+
 def build_transform():  
     t = []
     t.append(transforms.ToTensor())
@@ -28,7 +30,7 @@ def build_transform():
 
 import numpy as np
 from collections import Counter
-
+from torch.utils.data import Dataset, DataLoader, Subset
 def compute_label_counts(dataset):
     """
     Compute the count of each label in the dataset.
@@ -46,7 +48,127 @@ def compute_label_distribution(labels: torch.Tensor, num_classes: int) -> Dict[i
     label_counts = torch.bincount(labels, minlength=num_classes).float()
     label_probs = label_counts / label_counts.sum()
     return {label: label_probs[label].item() for label in range(num_classes)}
+class DomainShiftTransform:
+    """Implements medical image-specific domain shifts."""
+    def __init__(self, shift_params: Dict):
+        self.shift_params = shift_params
+        
+    def __call__(self, img: torch.Tensor) -> torch.Tensor:
+        # Apply configured transformations
+        if self.shift_params.get('contrast_factor', 0) != 0:
+            img = transforms.functional.adjust_contrast(
+                img, 
+                1 + self.shift_params['contrast_factor']
+            )
+            
+        if self.shift_params.get('brightness_factor', 0) != 0:
+            img = transforms.functional.adjust_brightness(
+                img, 
+                1 + self.shift_params['brightness_factor']
+            )
+            
+        if self.shift_params.get('noise_factor', 0) != 0:
+            noise = torch.randn_like(img) * self.shift_params['noise_factor']
+            img = img + noise
+            img = torch.clamp(img, 0, 1)
+            
+        if self.shift_params.get('blur_factor', 0) != 0:
+            kernel_size = int(3 + 2 * self.shift_params['blur_factor'])
+            img = transforms.functional.gaussian_blur(
+                img,
+                kernel_size,
+                self.shift_params['blur_factor']
+            )
+            
+        return img
 
+def build_domain_shift_transform(client_id: int, num_clients: int) -> Dict:
+    """Create client-specific domain shift parameters."""
+    # Define different domain shift patterns based on client ID
+    shift_patterns = {
+        'hospital_1': {
+            'contrast_factor': 0.2,
+            'brightness_factor': 0.1,
+            'noise_factor': 0.0,
+            'blur_factor': 0.0
+        },
+        'hospital_2': {
+            'contrast_factor': -0.1,
+            'brightness_factor': 0.2,
+            'noise_factor': 0.05,
+            'blur_factor': 0.0
+        },
+        'hospital_3': {
+            'contrast_factor': 0.0,
+            'brightness_factor': 0.0,
+            'noise_factor': 0.0,
+            'blur_factor': 0.0
+        },
+        
+    }
+    
+    # Assign patterns cyclically to clients
+    hospital_patterns = list(shift_patterns.values())
+    client_pattern = hospital_patterns[client_id % len(hospital_patterns)]
+    
+    return client_pattern
+def build_transform_with_domain_shift(client_id: int, num_clients: int):
+    """Build transformation pipeline with domain shift."""
+    # Base transformations
+    base_transforms = [
+        transforms.ToTensor(),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomRotation(degrees=45),
+        transforms.RandomApply(
+            [transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))],
+            p=0.5
+        )
+    ]
+    
+    # Add domain shift transform
+    domain_params = build_domain_shift_transform(client_id, num_clients)
+    domain_transform = DomainShiftTransform(domain_params)
+    
+    # Final normalization
+    final_transforms = [
+        domain_transform,
+        transforms.Normalize([0.5], [0.5])
+    ]
+    
+    return transforms.Compose(base_transforms + final_transforms)    
+
+def create_domain_shifted_loaders(
+   root_path,
+    num_clients: int,
+    batch_size: int
+,
+    transform
+) -> Tuple[List[DataLoader], List[DataLoader]]:
+    """Create domain-shifted dataloaders for each client."""
+    trainloaders = []
+    valloaders = []
+    root_path=os.getcwd()
+    for client_id in range(num_clients):
+        # Apply domain shift to training data
+        shifted_trainset=BreastMnistDataset(root_path,prefix='train',client_id=client_id,
+            num_clients=num_clients)
+
+        trainloaders.append(DataLoader(
+            shifted_trainset,
+            batch_size=batch_size,
+            shuffle=True
+        ))
+
+        shifted_valset=BreastMnistDataset(root_path,prefix='valid',client_id=client_id,
+            num_clients=num_clients)
+        valloaders.append(DataLoader(
+            shifted_valset,
+            batch_size=batch_size
+        ))
+
+    testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
+   
+    return trainloaders, valloaders , testset
 def makeBreastnistdata(root_path, prefix):
   print(f' root path {root_path}')
   data_path=os.path.join(root_path,'dataset')
@@ -71,12 +193,14 @@ def makeBreastnistdata(root_path, prefix):
 #then the purpose of this code is split a dataset among a number of clients and choose the way of spliting if it is iid or no iid etc
 class BreastMnistDataset(data.Dataset):
       
-    def __init__(self,root,prefix, transform=None):
+    def __init__(self,root,prefix, transform=None,client_id=0, num_clients=0, domain_shift=False ):
       data,labels= makeBreastnistdata(root, prefix='train')
       self.data=data
       self.labels  = labels  
-   
-      self.transform = transform
+      if domain_shift==True and client_id is not None:
+         self.transform = build_transform_with_domain_shift(client_id, num_clients)
+      else:
+        self.transform = transform
     def __len__(self):
         self.filelength = len(self.labels)
         return self.filelength
@@ -119,36 +243,10 @@ def _partition_data(
     power_law: Optional[bool] = True,
     balance: Optional[bool] = False,
     seed: Optional[int] = 42,
+    domain_shift=False
     
 ) -> Tuple[List[Dataset], Dataset]:
-    """Split training set into iid or non iid partitions to simulate the federated.
-
-    setting.
-
-    Parameters
-    ----------
-    num_clients : int
-        The number of clients that hold a part of the data
-    iid : bool, optional
-        Whether the data should be independent and identically distributed between
-        the clients or if the data should first be sorted by labels and distributed
-        by chunks to each client (used to test the convergence in a worst case scenario)
-        , by default False
-    power_law: bool, optional
-        Whether to follow a power-law distribution when assigning number of samples
-        for each client, defaults to True
-    balance : bool, optional
-        Whether the dataset should contain an equal number of samples in each class,
-        by default False
-    seed : int, optional
-        Used to set a fix seed to replicate experiments, by default 42
-
-    Returns
-    -------
-    Tuple[List[Dataset], Dataset]
-        A list of dataset for each client and a single dataset to be use for testing
-        the model.
-    """
+   
     if dataset_name=='breastmnist':
       
       #breasmnist dataset i already deploy it in huggerface
