@@ -11,7 +11,6 @@ from torchvision.datasets import MNIST
 import os
 import torch.utils.data as data
 
-
 def build_transform():  
     t = []
     t.append(transforms.ToTensor())
@@ -32,13 +31,7 @@ import numpy as np
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader, Subset
 def compute_label_counts(dataset):
-    """
-    Compute the count of each label in the dataset.
-    Args:
-        dataset: The local dataset (e.g., a PyTorch Dataset).
-    Returns:
-        A dictionary mapping labels to their counts.
-    """
+   
     labels = [label for _, label in dataset]  # Extract labels from the dataset
     label_counts = Counter(labels)  # Count occurrences of each label
     return label_counts

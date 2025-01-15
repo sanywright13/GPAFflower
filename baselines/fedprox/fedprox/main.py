@@ -23,6 +23,7 @@ import nest_asyncio
 import os
 import subprocess
 from fedprox.mlflowtracker import setup_tracking
+from fedprox.features_visualization import StructuredFeatureVisualizer
 #from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
 
@@ -148,7 +149,12 @@ def get_server_fn(mlflow=None):
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
 
-    
+    # In your main training script
+    visualizer = StructuredFeatureVisualizer(
+    num_clients=3,  # your number of clients
+    num_classes=2,  # number of classes in your data
+    experiment_name="GPAF_Medical_FL"  # name of your experiment
+    )
     server_fn = get_server_fn()
     # Create mlruns directory
     os.makedirs("mlruns", exist_ok=True)

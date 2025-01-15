@@ -28,6 +28,7 @@ from flwr.common import (
 )
 from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
+from fedprox.features_visualization import extract_features_and_labels
 class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
      data,validset,
@@ -122,6 +123,17 @@ class FederatedClient(fl.client.NumPyClient):
         loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
         #get the round in config
         # Log evaluation metrics using mlflow directly
+
+        # Extract features and labels
+        val_features, val_labels = extract_features_and_labels(
+        self.encoder,
+        self.validdata,
+        self.device
+           )
+    
+        if val_features is not None:
+          self.client_features[self.client_id] = val_features
+          self.client_labels[self.client_id] = val_labels
         with self.mlflow.start_run(run_id=self.run_id):  
             print(f' config client {config.get("server_round")}')
             self.mlflow.log_metrics({

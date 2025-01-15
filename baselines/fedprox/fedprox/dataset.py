@@ -17,28 +17,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
     seed: Optional[int] = 42,
     domain_shift=False
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    """Create the dataloaders to be fed into the model.
-
-    Parameters
-    ----------
-    config: DictConfig
-        Parameterises the dataset partitioning process
-    num_clients : int
-        The number of clients that hold a part of the data
-    val_ratio : float, optional
-        The ratio of training data that will be used for validation (between 0 and 1),
-        by default 0.1
-    batch_size : int, optional
-        The size of the batches to be fed into the model, by default 32
-    seed : int, optional
-        Used to set a fix seed to replicate experiments, by default 42
-
-    Returns
-    -------
-    Tuple[DataLoader, DataLoader, DataLoader]
-        The DataLoader for training, the DataLoader for validation, the DataLoader
-        for testing.
-    """
+  
     print(f"Dataset partitioning config: {config}")
     transform = build_transform()
     
