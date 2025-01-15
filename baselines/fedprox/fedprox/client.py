@@ -28,14 +28,15 @@ from flwr.common import (
 )
 from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
-from fedprox.features_visualization import extract_features_and_labels
+from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 class FederatedClient(fl.client.NumPyClient):
     def __init__(self, encoder: Encoder, classifier: Classifier, discriminator: Discriminator,
      data,validset,
      local_epochs,
      client_id,
       mlflow,
-      run_id):
+      run_id,
+      feature_visualizer):
         self.encoder = encoder
         self.classifier = classifier
         self.discriminator = discriminator
@@ -56,6 +57,10 @@ class FederatedClient(fl.client.NumPyClient):
         self.optimizer_classifier = torch.optim.Adam(self.classifier.parameters())
         self.optimizer_discriminator = torch.optim.Adam(self.discriminator.parameters())
         self.run_id=run_id
+        self.feature_visualizer=feature_visualizer
+        # Initialize dictionaries to store features and labels
+        self.client_features = {}  # Add this
+        self.client_labels = {}    # Add this
         # Generator will be updated from server state
         #self.generator = None
     
@@ -134,6 +139,7 @@ class FederatedClient(fl.client.NumPyClient):
         if val_features is not None:
           self.client_features[self.client_id] = val_features
           self.client_labels[self.client_id] = val_labels
+
         with self.mlflow.start_run(run_id=self.run_id):  
             print(f' config client {config.get("server_round")}')
             self.mlflow.log_metrics({
@@ -143,6 +149,22 @@ class FederatedClient(fl.client.NumPyClient):
                # f"client_{self.client_id}/eval_samples": samples
             }, step=config.get("server_round"))
             # Also log in format for easier plotting
+        # Visualize features if accuracy improved
+        if self.feature_visualizer is not None:
+            self.feature_visualizer.visualize_class_features(
+                self.client_features,
+                self.client_labels,
+                accuracy,
+                self.client_id,
+                config.get("server_round", 0)
+            )
+            #visualize all clients features per class
+            self.feature_visualizer.visualize_all_clients_by_class(
+            self.client_features,
+            self.client_labels,
+            accuracy,
+            config.get("server_round", 0)
+            )
            
               
                
@@ -242,7 +264,7 @@ def gen_client_fn(
         # Access the client ID (cid) from the context
       cid = context.node_config["partition-id"]
       # Create or get experiment
-      experiment_name = "GPAF_Medical_FL17"
+      experiment_name = "GPAF_Medical_FL"
       experiment = mlflow.get_experiment_by_name(experiment_name)
       if "mlflow_id" not in context.state.configs_records:
             context.state.configs_records["mlflow_id"] = ConfigsRecord()
@@ -274,6 +296,12 @@ def gen_client_fn(
         # Note: each client gets a different trainloader/valloader, so each client
         # will train and evaluate on their own unique data
         trainloader = trainloaders[int(cid)]
+        # Initialize the feature visualizer for all clients
+        feature_visualizer = StructuredFeatureVisualizer(
+        num_clients=num_clients,  # total number of clients
+        num_classes=2,           # number of classes in your dataset
+        experiment_name="GPAF_Medical_FL"  # name of your experiment
+          )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=2
@@ -287,7 +315,8 @@ def gen_client_fn(
             cid,
             mlflow
             ,
-            run_id
+            run_id,
+            feature_visualizer
 
         )
         # Convert NumpyClient to Client

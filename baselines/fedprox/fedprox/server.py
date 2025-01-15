@@ -47,7 +47,7 @@ class GPAFStrategy(FedAvg):
    
     ) -> None:
         super().__init__()
-        experiment_name = "GPAF_Medical_FL17"
+        experiment_name = "GPAF_Medical_FL"
 
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
