@@ -149,27 +149,21 @@ class FederatedClient(fl.client.NumPyClient):
                # f"client_{self.client_id}/eval_samples": samples
             }, step=config.get("server_round"))
             # Also log in format for easier plotting
-        # Visualize features if accuracy improved
-        if self.feature_visualizer is not None:
-            self.feature_visualizer.visualize_class_features(
-                self.client_features,
-                self.client_labels,
-                accuracy,
-                self.client_id,
-                config.get("server_round", 0)
-            )
-            #visualize all clients features per class
-            # Convert to numpy arrays and ensure correct shapes
-            features_np = val_features.detach().cpu().numpy()
-            labels_np = val_labels.detach().cpu().numpy().reshape(-1)  # Ensure 1D array
-        
-            print(f"Client {self.client_id} sending features shape: {features_np.shape}")
-            print(f"Client {self.client_id} sending labels shape: {labels_np.shape}")
+        import base64
+        import pickle
+        #visualize all clients features per class
+        features_np = val_features.detach().cpu().numpy()
+        labels_np = val_labels.detach().cpu().numpy().reshape(-1)  # Ensure 1D array
+        # In client:
+        features_serialized = base64.b64encode(pickle.dumps(features_np)).decode('utf-8')
+        labels_serialized = base64.b64encode(pickle.dumps(labels_np)).decode('utf-8')
+        print(f"Client {self.client_id} sending features shape: {features_np.shape}")
+        print(f"Client {self.client_id} sending labels shape: {labels_np.shape}")
          
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
         return float(loss), len(self.validdata), {"accuracy": float(accuracy),
-         "features": features_np.tolist(),
-            "labels": labels_np.tolist(),
+         "features": features_serialized,
+            "labels": labels_serialized,
         }
     
     

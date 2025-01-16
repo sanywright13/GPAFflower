@@ -153,7 +153,6 @@ def main(cfg: DictConfig) -> None:
     visualizer = StructuredFeatureVisualizer(
     num_clients=3,  # your number of clients
     num_classes=2,  # number of classes in your data
-    experiment_name="GPAF_Medical_FL"  # name of your experiment
     )
     server_fn = get_server_fn()
     # Create mlruns directory

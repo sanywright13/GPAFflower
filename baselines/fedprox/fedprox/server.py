@@ -16,6 +16,8 @@ from flwr.server.strategy import Strategy,FedAvg
 from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
 from fedprox.utils import save_z_to_file
 from flwr.server.client_proxy import ClientProxy
+from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
+
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -74,7 +76,7 @@ class GPAFStrategy(FedAvg):
         # Initialize the generator and its optimizer here
         self.num_classes =num_classes
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+        self.best_avg_accuracy=0.0
         # Initialize the generator and its optimizer here
         self.num_classes = num_classes
         self.latent_dim = 64
@@ -92,6 +94,11 @@ class GPAFStrategy(FedAvg):
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
         self.client_classifiers = {}
+        self.feature_visualizer =StructuredFeatureVisualizer(
+        num_clients=3,  # total number of clients
+        num_classes=self.num_classes,           # number of classes in your dataset
+
+          )
        
         
 
@@ -138,13 +145,12 @@ class GPAFStrategy(FedAvg):
         """Aggregate evaluation results."""
         if not results:
             return None, {}
-        # Clear previous round's data
-        self.client_features.clear()
-        self.client_labels.clear()
-        self.client_accuracies.clear()
+       
         accuracies = {}
         current_features = {}
         current_labels = {}
+        import base64
+        import pickle
         # Extract all accuracies from evaluation
         with self.mlflow.start_run(run_id=self.server_run_id):  
 
@@ -157,9 +163,9 @@ class GPAFStrategy(FedAvg):
             metrics = eval_res.metrics
             # Get features and labels if available
             if "features" in metrics and "labels" in metrics:
-              features_np = np.array(metrics.get("features"))
-              labels_np = np.array(metrics.get("labels"))
-            
+              
+              features_np = pickle.loads(base64.b64decode(metrics.get("features").encode('utf-8')))
+              labels_np = pickle.loads(base64.b64decode(metrics.get("labels").encode('utf-8')))
               current_features[client_id] = features_np
               current_labels[client_id] = labels_np
             
@@ -174,8 +180,7 @@ class GPAFStrategy(FedAvg):
         # Calculate average accuracy
         avg_accuracy = sum(accuracies.values()) / len(accuracies)
         # Only visualize if we have all the data and accuracy improved
-        if (len(current_features) == self.num_clients and 
-          avg_accuracy > self.best_avg_accuracy):
+        if avg_accuracy > self.best_avg_accuracy:
         
           self.best_avg_accuracy = avg_accuracy
           self.feature_visualizer.visualize_all_clients_by_class(
