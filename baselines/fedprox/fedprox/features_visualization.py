@@ -152,6 +152,86 @@ class StructuredFeatureVisualizer:
       plt.close()
 
       print(f"\nVisualization saved to: {save_path}")
+
+    def visualize_global_local_features(self,
+                                  client_features_dict: Dict[int, np.ndarray],
+                                  global_z: np.ndarray,
+                                  client_labels_dict: Dict[int, np.ndarray],
+                                  global_labels: np.ndarray,
+                                  epoch: int):
+      """
+      Visualize global generator features vs local client features,
+      with both colored by their respective classes.
+      """
+      plt.figure(figsize=(12, 8))
+    
+      # Combine all local features and their labels
+      all_local_features = []
+      all_local_labels = []
+      client_indicators = []
+    
+      for i, (client_id, features) in enumerate(client_features_dict.items()):
+        all_local_features.append(features)
+        all_local_labels.extend(client_labels_dict[client_id])
+        client_indicators.extend([i] * len(features))
+    
+      all_local_features = np.vstack(all_local_features)
+    
+      # Combine local and global features for joint t-SNE
+      combined_features = np.vstack([all_local_features, global_z])
+    
+      print(f"Shape of combined features: {combined_features.shape}")
+      print(f"Number of local features: {len(all_local_features)}")
+      print(f"Number of global features: {len(global_z)}")
+    
+      # Compute t-SNE embedding
+      tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+      embedded_features = tsne.fit_transform(combined_features)
+    
+      # Split back into local and global
+      local_embedded = embedded_features[:len(all_local_features)]
+      global_embedded = embedded_features[len(all_local_features):]
+    
+      # Define colors and markers
+      colors = ['#2ecc71', '#e74c3c']  # Green for class 0, Red for class 1
+      markers = ['o', 's', '^']  # Different marker for each client
+    
+      # Plot local features
+      classes = np.unique(all_local_labels)
+      for class_idx in classes:
+        for client_idx in range(len(client_features_dict)):
+            mask = (np.array(all_local_labels) == class_idx) & (np.array(client_indicators) == client_idx)
+            plt.scatter(local_embedded[mask, 0], local_embedded[mask, 1],
+                       c=colors[int(class_idx)], marker=markers[client_idx],
+                       label=f'Client {client_idx} Class {class_idx}',
+                       alpha=0.6)
+    
+      # Plot global features by class
+      print(f"Global labels shape: {global_labels.shape}")
+      print(f"Unique global labels: {np.unique(global_labels)}")
+    
+      for class_idx in classes:
+        mask = global_labels == class_idx
+        plt.scatter(global_embedded[mask, 0], global_embedded[mask, 1],
+                   c=colors[int(class_idx)], marker='*', s=150,
+                   label=f'Global Features Class {class_idx}',
+                   edgecolor='black', linewidth=1,
+                   alpha=0.8)
+    
+      plt.title(f'Global vs Local Features Comparison - Epoch {epoch}\n'
+             f'Features colored by class, Markers by source')
+      plt.xlabel('t-SNE Component 1')
+      plt.ylabel('t-SNE Component 2')
+      plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+      plt.grid(True, alpha=0.3)
+    
+      # Save visualization
+      filename = f"global_local_comparison_epoch{epoch}.png"
+      save_path = os.path.join(self.save_dir, filename)
+      plt.savefig(save_path, bbox_inches='tight', dpi=300)
+      plt.close()
+    
+      print(f"Visualization saved to: {save_path}")
     def _setup_folders(self) -> str:
         """Create organized folder structure for visualizations."""
         # Base directory for all visualizations

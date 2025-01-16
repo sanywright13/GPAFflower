@@ -147,8 +147,8 @@ class GPAFStrategy(FedAvg):
             return None, {}
        
         accuracies = {}
-        current_features = {}
-        current_labels = {}
+        self.current_features = {}
+        self.current_labels = {}
         import base64
         import pickle
         # Extract all accuracies from evaluation
@@ -166,8 +166,8 @@ class GPAFStrategy(FedAvg):
               
               features_np = pickle.loads(base64.b64decode(metrics.get("features").encode('utf-8')))
               labels_np = pickle.loads(base64.b64decode(metrics.get("labels").encode('utf-8')))
-              current_features[client_id] = features_np
-              current_labels[client_id] = labels_np
+              self.current_features[client_id] = features_np
+              self.current_labels[client_id] = labels_np
             
             print(f"Stored data for client {client_id}")
             # Log in a format that will show up as separate lines in MLflow
@@ -184,12 +184,30 @@ class GPAFStrategy(FedAvg):
         
           self.best_avg_accuracy = avg_accuracy
           self.feature_visualizer.visualize_all_clients_by_class(
-            features_dict=current_features,
-            labels_dict=current_labels,
+            features_dict=self.current_features,
+            labels_dict=self.current_labels,
             accuracies=accuracies,
             epoch=server_round,
             stage="validation"
           )
+          batch_size = 13 # Example batch size
+          noise_dim = self.latent_dim  # Noise dimension
+          label_dim = self.num_classes # Label dimension
+          # Generate global features with their conditioned labels
+          noise = torch.randn(batch_size, noise_dim).to(self.device)
+          labels = sample_labels(batch_size, self.label_probs)
+          labels_one_hot = F.one_hot(labels, num_classes=self.num_classes).float()
+        
+          with torch.no_grad():
+            global_z = self.generator(noise, labels_one_hot).cpu().numpy()
+          # Visualize with class-colored global features
+          self.feature_visualizer.visualize_global_local_features(
+            client_features_dict=self.current_features,
+            global_z=global_z,
+            client_labels_dict=self.current_labels,
+            global_labels=labels.numpy(),
+            epoch=server_round
+        )
         return avg_accuracy, {"accuracy": avg_accuracy}
     def configure_evaluate(
       self, server_round: int, parameters: Parameters, client_manager: ClientManager
