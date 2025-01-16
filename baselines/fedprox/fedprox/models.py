@@ -18,7 +18,10 @@ import torch.nn.functional as F
 #from models.swin_transformer import SwinTransformer
 #model vit
 #from vit_pytorch.vit_for_small_dataset import ViT
-from models.swin_transformer import SwinTransformer
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from swin_transformer.models.swin_transformer import SwinTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 import torch.nn as nn
 import torch
