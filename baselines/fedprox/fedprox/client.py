@@ -159,17 +159,18 @@ class FederatedClient(fl.client.NumPyClient):
                 config.get("server_round", 0)
             )
             #visualize all clients features per class
-            self.feature_visualizer.visualize_all_clients_by_class(
-            self.client_features,
-            self.client_labels,
-            accuracy,
-            config.get("server_round", 0)
-            )
-           
-              
-               
+            # Convert to numpy arrays and ensure correct shapes
+            features_np = val_features.detach().cpu().numpy()
+            labels_np = val_labels.detach().cpu().numpy().reshape(-1)  # Ensure 1D array
+        
+            print(f"Client {self.client_id} sending features shape: {features_np.shape}")
+            print(f"Client {self.client_id} sending labels shape: {labels_np.shape}")
+         
         print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
-        return float(loss), len(self.validdata), {"accuracy": float(accuracy)}
+        return float(loss), len(self.validdata), {"accuracy": float(accuracy),
+         "features": features_np.tolist(),
+            "labels": labels_np.tolist(),
+        }
     
     
     
@@ -300,7 +301,7 @@ def gen_client_fn(
         feature_visualizer = StructuredFeatureVisualizer(
         num_clients=num_clients,  # total number of clients
         num_classes=2,           # number of classes in your dataset
-        experiment_name="GPAF_Medical_FL"  # name of your experiment
+
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]

@@ -138,15 +138,32 @@ class GPAFStrategy(FedAvg):
         """Aggregate evaluation results."""
         if not results:
             return None, {}
-
+        # Clear previous round's data
+        self.client_features.clear()
+        self.client_labels.clear()
+        self.client_accuracies.clear()
+        accuracies = {}
+        current_features = {}
+        current_labels = {}
         # Extract all accuracies from evaluation
         with self.mlflow.start_run(run_id=self.server_run_id):  
 
          accuracies = {}
          for client_proxy, eval_res in results:
             client_id = client_proxy.cid
+
             accuracy = eval_res.metrics.get("accuracy", 0.0)
             accuracies[f"client_{client_id}"] = accuracy
+            metrics = eval_res.metrics
+            # Get features and labels if available
+            if "features" in metrics and "labels" in metrics:
+              features_np = np.array(metrics.get("features"))
+              labels_np = np.array(metrics.get("labels"))
+            
+              current_features[client_id] = features_np
+              current_labels[client_id] = labels_np
+            
+            print(f"Stored data for client {client_id}")
             # Log in a format that will show up as separate lines in MLflow
             self.mlflow.log_metrics({
                     f"accuracy_client_{client_id}": accuracy
@@ -156,22 +173,18 @@ class GPAFStrategy(FedAvg):
            
         # Calculate average accuracy
         avg_accuracy = sum(accuracies.values()) / len(accuracies)
-        '''
-        # Log metrics
-        if self.mlflow:
-            metrics_dict = {
-                "round": server_round,
-                "avg_accuracy": avg_accuracy,
-            }
-            # Add individual client accuracies
-            metrics_dict.update({f"eval_accuracy_{k}": v for k, v in accuracies.items()})
-            
-            self.mlflow.log_metrics(metrics_dict, step=server_round)
-            
-            print(f"\nRound {server_round} Evaluation Summary:")
-            print(f"Average Accuracy: {avg_accuracy:.4f}")
-           
-        '''
+        # Only visualize if we have all the data and accuracy improved
+        if (len(current_features) == self.num_clients and 
+          avg_accuracy > self.best_avg_accuracy):
+        
+          self.best_avg_accuracy = avg_accuracy
+          self.feature_visualizer.visualize_all_clients_by_class(
+            features_dict=current_features,
+            labels_dict=current_labels,
+            accuracies=accuracies,
+            epoch=server_round,
+            stage="validation"
+          )
         return avg_accuracy, {"accuracy": avg_accuracy}
     def configure_evaluate(
       self, server_round: int, parameters: Parameters, client_manager: ClientManager
