@@ -13,17 +13,21 @@ from flwr.server import ServerApp, ServerConfig, ServerAppComponents
 from flwr.server.strategy import FedAvg
 from flwr.simulation import run_simulation
 from fedprox import client, server, utils
-from fedprox.client import gen_client_fn
+from fedprox.client import gen_client_fn , FlowerClient
 from fedprox.dataset import load_datasets
 from fedprox.utils import save_results_as_pickle
 import mlflow
+from  mlflow.tracking import MlflowClient
 import time
 from pyngrok import ngrok
 import nest_asyncio
+from flwr.common import ConfigsRecord, MetricsRecord, ParametersRecord
 import os
 import subprocess
 from fedprox.mlflowtracker import setup_tracking
 from fedprox.features_visualization import StructuredFeatureVisualizer
+from fedprox.strategy import FedAVGWithEval
+from fedprox.models import get_model
 #from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
 
@@ -38,7 +42,28 @@ import torch
 import numpy as np
 from typing import List
 from torch.utils.data import DataLoader
-
+strategy="fedavg"
+ # Create or get experiment
+experiment_name = "GPAF_Medical_FL"
+experiment = mlflow.get_experiment_by_name(experiment_name)
+if experiment is None:
+        experiment_id = mlflow.create_experiment(experiment_name)
+        print(f"Created new experiment with ID: {experiment_id}")
+else:
+        print(f"Using existing experiment with ID: {experiment.experiment_id}")
+backend_config = {"client_resources": {"num_cpus":1 , "num_gpus": 0.0}}
+# When running on GPU, assign an entire GPU for each client
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')   
+@hydra.main(config_path="conf", config_name="config", version_base=None) 
+ # partition dataset and get dataloaders
+def data_load(cfg: DictConfig):
+  trainloaders, valloaders, testloader = load_datasets(
+        config=cfg.dataset_config,
+        num_clients=cfg.num_clients,
+        batch_size=cfg.batch_size,
+        domain_shift=False
+    )
+  return trainloaders, valloaders, testloader
 def visualize_intensity_distributions(trainloaders: List[DataLoader], num_clients: int):
     """
     Visualize pixel intensity distributions across different clients.
@@ -124,11 +149,68 @@ def visualize_intensity_distributions(trainloaders: List[DataLoader], num_client
         for metric, value in stats[client].items():
             print(f"  {metric}: {value:.4f}")
 
+#for fedagv strategy client side
+def client_fn(context: Context) -> Client:
+      partition_id = context.node_config["partition-id"]
+      # Initialize MLflowClient
+      client = MlflowClient()
+      # Create an MLflow run for this client
+      experiment_id = mlflow.get_experiment_by_name(experiment_name).experiment_id
+
+      if "mlflow_id" not in context.state.configs_records:
+            context.state.configs_records["mlflow_id"] = ConfigsRecord()
+
+      #print(context.state.configs_records)
+      #check the client id has a run id in the context.state
+      run_ids = context.state.configs_records["mlflow_id"]
+
+      if str(partition_id) not in run_ids:
+            run = client.create_run(experiment_id)
+            run_ids[str(partition_id)] = [run.info.run_id]
+
+      """Create a Flower client representing a single organization."""
+      # End the current active run if there is one
+
+      #print(f"Client config {config}")
+      # Load model
+      model=get_model('swim')
+      net = model.to(DEVICE)
+      local_epochs=5
+      criterion = torch.nn.CrossEntropyLoss()
+      lr=0.00013914064388085564
+      optimizer = torch.optim.Adam(net.parameters(),lr=lr,weight_decay=1e-4)
+      # Note: each client gets a different trainloader/valloader, so each client
+      # will train and evaluate on their own unique data partition
+      # Read the node_config to fetch data partition associated to this node
+      trainloaders, valloaders, testloader=data_load()
+      trainloader = trainloaders[int(partition_id)]
+      # Initialize the feature visualizer for all clients
+        
+      valloader = valloaders[int(partition_id)]
+      
+
+    
+
+        
+      return FlowerClient(net, trainloader, valloader,partition_id,mlflow,run_ids,local_epochs).to_client()
+
+
+
 def get_server_fn(mlflow=None):
  """Create server function with MLflow tracking."""
  def server_fn(context: Context) -> ServerAppComponents:
 
-   
+    if strategy=="fedavg":
+      strategy = FedAVGWithEval(
+      fraction_fit=1.0,  # Train with 50% of available clients
+      fraction_evaluate=0.5,  # Evaluate with all available clients
+      min_fit_clients=3,
+      min_evaluate_clients=2,
+      min_available_clients=3,
+
+      #on_evaluate_config_fn=get_on_evaluate_config_fn(),
+)
+    else: 
       strategy = server.GPAFStrategy(
         fraction_fit=1.0,  # Ensure all clients participate in training
         #fraction_evaluate=1.0,
@@ -161,40 +243,33 @@ def main(cfg: DictConfig) -> None:
     # Set up MLflow tracking
     mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
     
-    # Create or get experiment
-    experiment_name = "GPAF_Medical_FL"
-    experiment = mlflow.get_experiment_by_name(experiment_name)
-    if experiment is None:
-        experiment_id = mlflow.create_experiment(experiment_name)
-        print(f"Created new experiment with ID: {experiment_id}")
-    else:
-        print(f"Using existing experiment with ID: {experiment.experiment_id}")
-    
+   
     # print config structured as YAML
     print(OmegaConf.to_yaml(cfg))
 
-    # partition dataset and get dataloaders
-    trainloaders, valloaders, testloader = load_datasets(
-        config=cfg.dataset_config,
-        num_clients=cfg.num_clients,
-        batch_size=cfg.batch_size,
-        domain_shift=False
-    )
+    trainloaders, valloaders, testloader=data_load()
     #visualize client pixel intensity 
     visualize_intensity_distributions(trainloaders,3)
  
     # Initialize MLflow with authentication
     # prepare function that will be used to spawn each client
     #with mlflow.start_run(experiment_id=experiment_id):
-    client_fn = gen_client_fn(
+    
+    if strategy=="gpaf":
+      client_fn = gen_client_fn(
         num_clients=cfg.num_clients,
         num_epochs=cfg.num_epochs,
         trainloaders=trainloaders,
         valloaders=valloaders,
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
-       
-    )
+       )
+      client = ClientApp(client_fn=client_fn)
+    else:
+      # Create the ClientApp
+      client = ClientApp(client_fn=client_fn)
+
+    
     print(f'fffffff {client_fn}')
     # get function that will executed by the strategy's evaluate() method
     # Set server's device
@@ -217,8 +292,7 @@ def main(cfg: DictConfig) -> None:
 
     # Start simulation
     server= ServerApp(server_fn=server_fn)
-    client=ClientApp(client_fn=client_fn)
-
+  
     
     history = run_simulation(
         client_app=client,

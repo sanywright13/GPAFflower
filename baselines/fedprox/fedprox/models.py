@@ -16,6 +16,67 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #from models.swin_transformer import SwinTransformer
+#model vit
+#from vit_pytorch.vit_for_small_dataset import ViT
+from models.swin_transformer import SwinTransformer
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+import torch.nn as nn
+import torch
+def get_model(model_name):
+  if model_name == 'vit':
+    model = ViT(
+    image_size=28,        # specify image size
+    patch_size=14,
+    num_classes=2,        # specify the number of output classes
+    dim=128,               # embedding dimension
+    depth=8,               # number of transformer layers
+    heads=4,               # number of attention heads
+    mlp_dim=512,          # MLP hidden layer dimension
+    pool='mean',            # 'cls' or 'mean' pooling
+    channels=1,            # number of input channels (e.g., 3 for RGB images)
+    dim_head=64,           # dimension per attention head
+    dropout=0.3,
+    #emb_dropout=0.1        # embedding dropout rate
+    ).to(device)
+  elif model_name == 'swim':
+    layernorm = nn.LayerNorm
+    USE_CHECKPOINT=False
+    FUSED_WINDOW_PROCESS=False
+    IMG_SIZE=28
+    IN_CHANS=1
+    NUM_CLASSES=2
+    DEPTHS= [4,6]
+    NUM_HEADS=[12,24]
+    WINDOW_SIZE=7
+    MLP_RATIO=4
+    PATCH_SIZE=2
+    EMBED_DIM=96
+    QKV_BIAS=True
+    QK_SCALE=None
+    DROP_RATE=0.1
+    DROP_PATH_RATE=0.2
+    APE=False
+    PATCH_NORM=True
+    model = SwinTransformer(img_size=IMG_SIZE,
+                                patch_size=PATCH_SIZE,
+                                in_chans=IN_CHANS,
+                                num_classes=NUM_CLASSES,
+                                embed_dim=EMBED_DIM,
+                                depths=DEPTHS,
+                                num_heads=NUM_HEADS,
+                                window_size=WINDOW_SIZE,
+                                mlp_ratio=MLP_RATIO,
+                                qkv_bias=QKV_BIAS,
+                                qk_scale=QK_SCALE,
+                                drop_rate=DROP_RATE,
+                                drop_path_rate=DROP_PATH_RATE,
+                                ape=APE,
+                                norm_layer=layernorm,
+                                patch_norm=PATCH_NORM,
+                                use_checkpoint=USE_CHECKPOINT,
+                                fused_window_process=FUSED_WINDOW_PROCESS)
+
+  return model
 Tensor = torch.FloatTensor
 class StochasticGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):

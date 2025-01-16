@@ -318,4 +318,115 @@ def gen_client_fn(
         return numpy_client.to_client()
     return client_fn
 
+
+# Specify the resources each of your clients need
+# By default, each client will be allocated 1x CPU and 0x GPUs
+backend_config = {"client_resources": {"num_cpus":1 , "num_gpus": 0.0}}
+# When running on GPU, assign an entire GPU for each client
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+if DEVICE.type == "cuda":
+    backend_config = {"client_resources": {"num_cpus": 1, "num_gpus": 1.0}}
+    # Refer to our Flower framework documentation for more details about Flower simulations
+    # and how to set up the `backend_config`
+class FlowerClient(NumPyClient):
+
+    def __init__(self, net, trainloader, valloader,partition_id,mlflow,run_ids,local_epochs=50):
+        self.net = net
+        self.trainloader = trainloader
+        self.valloader = valloader
+        self.local_epochs=local_epochs
+        self.client_id=partition_id
+        self.run_ids=run_ids
+        self.mlflow=mlflow
+        print(f"sana Run IDs: {self.run_ids}")
+
+    #update the local model with parameters received from the server
+    def set_parameters(net, parameters: List[np.ndarray]):
+      params_dict = zip(net.state_dict().keys(), parameters)
+      state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+      net.load_state_dict(state_dict, strict=True)
+
+    #get the updated model parameters from the local model return local model parameters
+    def get_parameters(net) -> List[np.ndarray]:
+      return [val.cpu().numpy() for _, val in net.state_dict().items()]
     
+    def get_parameters(self, config):
+        return self.get_parameters(self.net)
+    #get parameters from server train with local data end return the updated local parameter to the server
+    def fit(self, parameters, config):
+
+        self.set_parameters(self.net, parameters)
+        self.train(self.net, self.trainloader,self.client_id,epochs=self.local_epochs)
+        # Log the model after training
+        """
+        with mlflow.start_run(run_id=self.run_ids[str(self.client_id)][0], nested=True) as run:
+            mlflow.pytorch.log_model(self.net, f"model_client_{self.client_id}")
+        """
+        return self.get_parameters(self.net), len(self.trainloader), {}
+
+    def evaluate(self, parameters, config):
+        #server_round = config["server_round"]
+        #print(f"Client {self.client_id} round id after training: {server_round}")
+        # Log evaluation metrics to MLflow
+        with self.mlflow.start_run(run_id=self.run_ids[str(self.client_id)][0], nested=True) as run:
+          server_round = config["server_round"]
+          #print(f"Client {self.client_id} round id after training: {server_round}")
+          self.set_parameters(self.net, parameters)
+          loss, accuracy = self.test(self.net, self.valloader)
+          print(f"Client {self.client_id} round id {server_round} , val accuracy: {accuracy}")
+          #print(f'****evaluation**** {mlflow}')
+          self.mlflow.log_metrics({
+            f"val_accuracy_round_{server_round}": accuracy,
+            f"val_loss_round_{server_round}": loss
+          })
+
+        return float(loss), len(self.valloader), {"accuracy": float(accuracy)} 
+
+    def train(net, trainloader, client_id,epochs: int, verbose=False):
+      """Train the network on the training set."""
+      criterion = torch.nn.CrossEntropyLoss()
+      lr=0.00013914064388085564
+      optimizer = torch.optim.Adam(net.parameters(),lr=lr,weight_decay=1e-4)
+      net.train()
+      for epoch in range(epochs):
+        correct, total, epoch_loss = 0, 0, 0.0
+        for batch in trainloader:
+
+            images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            labels=labels.squeeze(1)
+            #print(labels)
+            optimizer.zero_grad()
+            outputs = net(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            # Metrics
+            epoch_loss += loss
+            total += labels.size(0)
+            correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+        epoch_loss /= len(trainloader.dataset)
+        epoch_acc = correct / total
+        print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
+
+
+    def test(net, testloader):
+      """Evaluate the network on the entire test set."""
+      criterion = torch.nn.CrossEntropyLoss()
+      correct, total, loss = 0, 0, 0.0
+      net.eval()
+      with torch.no_grad():
+        for batch in testloader:
+            images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            labels=labels.squeeze(1)
+            print(labels)
+            outputs = net(images)
+            loss += criterion(outputs, labels).item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+      loss /= len(testloader.dataset)
+      accuracy = correct / total
+      return loss, accuracy   
+
+  # Save the trained model to MLflow.    
