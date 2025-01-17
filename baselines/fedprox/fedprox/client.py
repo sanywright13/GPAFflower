@@ -248,8 +248,8 @@ def gen_client_fn(
     trainloaders: List[DataLoader],
     valloaders: List[DataLoader],
     learning_rate: float,
-    model=None
-
+    model=None,
+experiment_name =None
     
 
 ) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
@@ -260,7 +260,6 @@ def gen_client_fn(
         # Access the client ID (cid) from the context
       cid = context.node_config["partition-id"]
       # Create or get experiment
-      experiment_name = "GPAF_Medical_FL"
       experiment = mlflow.get_experiment_by_name(experiment_name)
       if "mlflow_id" not in context.state.configs_records:
             context.state.configs_records["mlflow_id"] = ConfigsRecord()
@@ -300,7 +299,7 @@ def gen_client_fn(
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=2
+        num_epochs=15
         strategy='fedavg'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
@@ -323,8 +322,8 @@ def gen_client_fn(
           
          
           numpy_client = FlowerClient(
-            model, trainloader, valloader,
-            mlflow,run_ids,num_epochs)
+            model, trainloader, valloader,num_epochs,
+           cid,run_id,mlflow)
 
         return numpy_client.to_client()
     return client_fn
@@ -342,26 +341,25 @@ if DEVICE.type == "cuda":
     # and how to set up the `backend_config`
 class FlowerClient(NumPyClient):
 
-    def __init__(self, net, trainloader, valloader,partition_id,mlflow,run_ids,local_epochs=50):
+    def __init__(self, net, trainloader, valloader,local_epochs,partition_id,run_id,mlflow):
         self.net = net
         self.trainloader = trainloader
         self.valloader = valloader
         self.local_epochs=local_epochs
         self.client_id=partition_id
-        self.run_ids=run_ids
+        self.run_id=run_id
         self.mlflow=mlflow
-        print(f"sana Run IDs: {self.run_ids}")
 
     #update the local model with parameters received from the server
-    def set_parameters(net, parameters: List[np.ndarray]):
+    def set_parameters(self,net, parameters: List[np.ndarray]):
       params_dict = zip(net.state_dict().keys(), parameters)
       state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
       net.load_state_dict(state_dict, strict=True)
 
     #get the updated model parameters from the local model return local model parameters
     
-    def get_parameters(self,net, config):
-        return [val.cpu().numpy() for _, val in net.state_dict().items()]
+    def get_parameters(self , config: Dict[str, Scalar] = None):
+        return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
 
     #get parameters from server train with local data end return the updated local parameter to the server
     def fit(self, parameters, config):
@@ -374,26 +372,28 @@ class FlowerClient(NumPyClient):
             mlflow.pytorch.log_model(self.net, f"model_client_{self.client_id}")
         """
         return self.get_parameters(self.net), len(self.trainloader), {}
-
+    
     def evaluate(self, parameters, config):
-        #server_round = config["server_round"]
-        #print(f"Client {self.client_id} round id after training: {server_round}")
-        # Log evaluation metrics to MLflow
-        with self.mlflow.start_run(run_id=self.run_ids[str(self.client_id)][0], nested=True) as run:
+       
           server_round = config["server_round"]
           #print(f"Client {self.client_id} round id after training: {server_round}")
           self.set_parameters(self.net, parameters)
           loss, accuracy = self.test(self.net, self.valloader)
           print(f"Client {self.client_id} round id {server_round} , val accuracy: {accuracy}")
           #print(f'****evaluation**** {mlflow}')
-          self.mlflow.log_metrics({
-            f"val_accuracy_round_{server_round}": accuracy,
-            f"val_loss_round_{server_round}": loss
-          })
+          with self.mlflow.start_run(run_id=self.run_id):  
+            self.mlflow.log_metrics({
+                f"client_{self.client_id}/eval_loss": float(loss),
+                f"client_{self.client_id}/eval_accuracy": float(accuracy),
+               
+            }, step=config.get("server_round"))
+            # Also log in format for easier plotting
+          print(f'client id : {self.client_id} and valid accuracy is {accuracy} and valid loss is : {loss}')
 
-        return float(loss), len(self.valloader), {"accuracy": float(accuracy)} 
 
-    def train(net, trainloader, client_id,epochs: int, verbose=False):
+          return float(loss), len(self.valloader), {"accuracy": float(accuracy)} 
+    
+    def train(self,net, trainloader, client_id,epochs: int, verbose=False):
       """Train the network on the training set."""
       criterion = torch.nn.CrossEntropyLoss()
       lr=0.00013914064388085564
@@ -403,7 +403,7 @@ class FlowerClient(NumPyClient):
         correct, total, epoch_loss = 0, 0, 0.0
         for batch in trainloader:
 
-            images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            images, labels = batch
             labels=labels.squeeze(1)
             #print(labels)
             optimizer.zero_grad()
@@ -420,16 +420,16 @@ class FlowerClient(NumPyClient):
         print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
 
 
-    def test(net, testloader):
+    def test(self,net, testloader):
       """Evaluate the network on the entire test set."""
       criterion = torch.nn.CrossEntropyLoss()
       correct, total, loss = 0, 0, 0.0
       net.eval()
       with torch.no_grad():
         for batch in testloader:
-            images, labels = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+            images, labels = batch
             labels=labels.squeeze(1)
-            print(labels)
+            
             outputs = net(images)
             loss += criterion(outputs, labels).item()
             _, predicted = torch.max(outputs.data, 1)

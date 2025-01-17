@@ -11,6 +11,8 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
+from flwr.server.client_manager import ClientManager
+
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 
@@ -22,7 +24,7 @@ class FedAVGWithEval(FedAvg):
         fraction_evaluate: float = 1.0,
         min_fit_clients: int = 2,
         min_evaluate_clients: int = 2,
-        min_available_clients: int = 2,
+        min_available_clients: int = 3,
         evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         **kwargs,
     ) -> None:
@@ -35,6 +37,8 @@ class FedAVGWithEval(FedAvg):
             evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,
             **kwargs,
         )
+     self.min_evaluate_clients=min_evaluate_clients
+     self.min_available_clients=min_available_clients
     def evaluate(
         self, server_round: int, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
@@ -43,6 +47,24 @@ class FedAVGWithEval(FedAvg):
         if self.evaluate_fn is None:
             # No evaluation function provided
             return None
+    def configure_evaluate(
+      self, server_round: int, parameters: Parameters, client_manager: ClientManager
+) -> List[Tuple[ClientProxy, EvaluateIns]]:
+      
+      """Configure the next round of evaluation."""
+   
+      #sample_size, min_num_clients = self.num_evaluate_clients(client_manager)
+      clients = client_manager.sample(
+        num_clients=self.min_available_clients, min_num_clients=self.min_evaluate_clients
+    )
+      evaluate_config = {"server_round": server_round}  # Pass the round number in config
+      # Create EvaluateIns for each client
+   
+      evaluate_ins = EvaluateIns(parameters, evaluate_config)
+     
+      # Return client-EvaluateIns pairs
+      return [(client, evaluate_ins) for client in clients]   
+    
     def aggregate_evaluate(
         self,
         server_round: int,

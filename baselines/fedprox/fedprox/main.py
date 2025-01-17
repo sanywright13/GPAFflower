@@ -44,7 +44,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="fedavg"
  # Create or get experiment
-experiment_name = "GPAF_Medical_FL"
+experiment_name = "GPAF_Medical_FL10"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -159,6 +159,18 @@ def evaluate_metrics_aggregation_fn(eval_metrics: List[Tuple[int, Dict[str, floa
             "loss": sum(losses) / len(losses),
             "accuracy": sum(accuracies) / len(accuracies),
         }
+def get_on_evaluate_config_fn():
+    """Return a function which returns training configurations."""
+
+    def evaluate_config(server_round: int):
+        print('server round sanaa'+str(server_round))
+        """Return a configuration with static batch size and (local) epochs."""
+        config = {
+            "server_round": str(server_round),
+        }
+        return config
+
+    return evaluate_config
 def get_server_fn(mlflow=None):
  """Create server function with MLflow tracking."""
  def server_fn(context: Context) -> ServerAppComponents:
@@ -173,7 +185,7 @@ def get_server_fn(mlflow=None):
       min_available_clients=3,
       evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Add this
 
-      #on_evaluate_config_fn=get_on_evaluate_config_fn(),
+      on_evaluate_config_fn=get_on_evaluate_config_fn(),
 )
       print(f'strategy ggg {strategyi}')
     else: 
@@ -187,7 +199,7 @@ def get_server_fn(mlflow=None):
       )
 
     # Configure the server for 5 rounds of training
-    config = ServerConfig(num_rounds=5)
+    config = ServerConfig(num_rounds=10)
     return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 
@@ -196,7 +208,7 @@ def get_server_fn(mlflow=None):
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
-
+    global experiment_name
     # In your main training script
     visualizer = StructuredFeatureVisualizer(
     num_clients=3,  # your number of clients
@@ -214,13 +226,8 @@ def main(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
 
     trainloaders, valloaders, testloader=data_load(cfg)
-    #visualize client pixel intensity 
     visualize_intensity_distributions(trainloaders,3)
  
-    # Initialize MLflow with authentication
-    # prepare function that will be used to spawn each client
-    #with mlflow.start_run(experiment_id=experiment_id):
-    
     if strategy=="gpaf":
       client_fn = gen_client_fn(
         num_clients=cfg.num_clients,
@@ -229,6 +236,7 @@ def main(cfg: DictConfig) -> None:
         valloaders=valloaders,
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
+        experiment_name=experiment_name
        )
       
     else:
@@ -241,17 +249,14 @@ def main(cfg: DictConfig) -> None:
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
         model=get_model("swim")
+        ,
+        experiment_name=experiment_name
        )
 
     client = ClientApp(client_fn=client_fn)
-    print(f'fffffff {client_fn}')
-    # get function that will executed by the strategy's evaluate() method
-    # Set server's device
-    device = cfg.server_device
-    #evaluate_fn = server.gen_evaluate_fn(testloader, device=device, model=cfg.model)
 
-    # get a function that will be used to construct the config that the client's
-    # fit() method will received
+    device = cfg.server_device
+  
     def get_on_fit_config():
         def fit_config_fn(server_round: int):
             # resolve and convert to python dict
@@ -263,11 +268,8 @@ def main(cfg: DictConfig) -> None:
 
         return fit_config_fn
    
-
     # Start simulation
     server= ServerApp(server_fn=server_fn)
-  
-    
     history = run_simulation(
         client_app=client,
         server_app=server ,
