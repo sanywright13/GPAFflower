@@ -248,6 +248,7 @@ def gen_client_fn(
     trainloaders: List[DataLoader],
     valloaders: List[DataLoader],
     learning_rate: float,
+    model=None
 
     
 
@@ -300,7 +301,9 @@ def gen_client_fn(
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=2
-        numpy_client =  FederatedClient(
+        strategy=fedavg
+        if strategy=="gpaf":
+          numpy_client =  FederatedClient(
             encoder,
             classifier,
             discriminator,
@@ -313,8 +316,17 @@ def gen_client_fn(
             run_id,
             feature_visualizer
 
-        )
-        # Convert NumpyClient to Client
+          )
+          # Convert NumpyClient to Client
+        else:
+          # Load model
+          
+         
+          numpy_client=
+          FlowerClient(
+            model, trainloader, valloader,
+            mlflow,run_id,local_epochs)
+
         return numpy_client.to_client()
     return client_fn
 

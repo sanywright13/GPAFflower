@@ -54,16 +54,8 @@ else:
 backend_config = {"client_resources": {"num_cpus":1 , "num_gpus": 0.0}}
 # When running on GPU, assign an entire GPU for each client
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')   
-@hydra.main(config_path="conf", config_name="config", version_base=None) 
- # partition dataset and get dataloaders
-def data_load(cfg: DictConfig):
-  trainloaders, valloaders, testloader = load_datasets(
-        config=cfg.dataset_config,
-        num_clients=cfg.num_clients,
-        batch_size=cfg.batch_size,
-        domain_shift=False
-    )
-  return trainloaders, valloaders, testloader
+# partition dataset and get dataloaders
+
 def visualize_intensity_distributions(trainloaders: List[DataLoader], num_clients: int):
     """
     Visualize pixel intensity distributions across different clients.
@@ -182,7 +174,7 @@ def client_fn(context: Context) -> Client:
       # Note: each client gets a different trainloader/valloader, so each client
       # will train and evaluate on their own unique data partition
       # Read the node_config to fetch data partition associated to this node
-      trainloaders, valloaders, testloader=data_load()
+      trainloaders, valloaders, testloader=data_load(cfg)
       trainloader = trainloaders[int(partition_id)]
       # Initialize the feature visualizer for all clients
         
@@ -247,7 +239,7 @@ def main(cfg: DictConfig) -> None:
     # print config structured as YAML
     print(OmegaConf.to_yaml(cfg))
 
-    trainloaders, valloaders, testloader=data_load()
+    trainloaders, valloaders, testloader=data_load(cfg)
     #visualize client pixel intensity 
     visualize_intensity_distributions(trainloaders,3)
  
@@ -320,7 +312,14 @@ def main(cfg: DictConfig) -> None:
     save_results_as_pickle(history, file_path=save_path, extra_results={})
     #server.keep_alive()
     
-   
+def data_load(cfg: DictConfig):
+  trainloaders, valloaders, testloader = load_datasets(
+        config=cfg.dataset_config,
+        num_clients=cfg.num_clients,
+        batch_size=cfg.batch_size,
+        domain_shift=False
+    )
+  return trainloaders, valloaders, testloader   
 if __name__ == "__main__":
     
     main()

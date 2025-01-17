@@ -20,8 +20,12 @@ import torch.nn.functional as F
 #from vit_pytorch.vit_for_small_dataset import ViT
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from swin_transformer.models.swin_transformer import SwinTransformer
+
+# Get the path to the nested repo relative to your current script
+nested_repo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..","Swin-Transformer-fed")
+sys.path.append(os.path.abspath(nested_repo_path))
+print(f'gg: {nested_repo_path}')
+from models.swin_transformer import SwinTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 import torch.nn as nn
 import torch
