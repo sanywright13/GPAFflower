@@ -301,7 +301,7 @@ def gen_client_fn(
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=2
-        strategy=fedavg
+        strategy='fedavg'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
             encoder,
@@ -322,10 +322,9 @@ def gen_client_fn(
           # Load model
           
          
-          numpy_client=
-          FlowerClient(
+          numpy_client = FlowerClient(
             model, trainloader, valloader,
-            mlflow,run_id,local_epochs)
+            mlflow,run_ids,num_epochs)
 
         return numpy_client.to_client()
     return client_fn
@@ -360,11 +359,10 @@ class FlowerClient(NumPyClient):
       net.load_state_dict(state_dict, strict=True)
 
     #get the updated model parameters from the local model return local model parameters
-    def get_parameters(net) -> List[np.ndarray]:
-      return [val.cpu().numpy() for _, val in net.state_dict().items()]
     
-    def get_parameters(self, config):
-        return self.get_parameters(self.net)
+    def get_parameters(self,net, config):
+        return [val.cpu().numpy() for _, val in net.state_dict().items()]
+
     #get parameters from server train with local data end return the updated local parameter to the server
     def fit(self, parameters, config):
 

@@ -1,6 +1,6 @@
 """Runs CNN federated learning for MNIST dataset."""
 
-from typing import Dict, Union
+from typing import Dict, Union,Tuple
 import mlflow
 import flwr as fl
 import hydra
@@ -141,69 +141,43 @@ def visualize_intensity_distributions(trainloaders: List[DataLoader], num_client
         for metric, value in stats[client].items():
             print(f"  {metric}: {value:.4f}")
 
-#for fedagv strategy client side
-def client_fn(context: Context) -> Client:
-      partition_id = context.node_config["partition-id"]
-      # Initialize MLflowClient
-      client = MlflowClient()
-      # Create an MLflow run for this client
-      experiment_id = mlflow.get_experiment_by_name(experiment_name).experiment_id
 
-      if "mlflow_id" not in context.state.configs_records:
-            context.state.configs_records["mlflow_id"] = ConfigsRecord()
-
-      #print(context.state.configs_records)
-      #check the client id has a run id in the context.state
-      run_ids = context.state.configs_records["mlflow_id"]
-
-      if str(partition_id) not in run_ids:
-            run = client.create_run(experiment_id)
-            run_ids[str(partition_id)] = [run.info.run_id]
-
-      """Create a Flower client representing a single organization."""
-      # End the current active run if there is one
-
-      #print(f"Client config {config}")
-      # Load model
-      model=get_model('swim')
-      net = model.to(DEVICE)
-      local_epochs=5
-      criterion = torch.nn.CrossEntropyLoss()
-      lr=0.00013914064388085564
-      optimizer = torch.optim.Adam(net.parameters(),lr=lr,weight_decay=1e-4)
-      # Note: each client gets a different trainloader/valloader, so each client
-      # will train and evaluate on their own unique data partition
-      # Read the node_config to fetch data partition associated to this node
-      trainloaders, valloaders, testloader=data_load(cfg)
-      trainloader = trainloaders[int(partition_id)]
-      # Initialize the feature visualizer for all clients
-        
-      valloader = valloaders[int(partition_id)]
-      
 
     
 
+def evaluate_metrics_aggregation_fn(eval_metrics: List[Tuple[int, Dict[str, float]]]) -> Dict[str, float]:
+        """Aggregate evaluation metrics from multiple clients."""
+        # Unpack the evaluation metrics from each client
+        losses = []
+        accuracies = []
+        for _, metrics in eval_metrics:
+            losses.append(metrics["loss"])
+            accuracies.append(metrics["accuracy"])
         
-      return FlowerClient(net, trainloader, valloader,partition_id,mlflow,run_ids,local_epochs).to_client()
-
-
-
+        # Aggregate the metrics
+        return {
+            "loss": sum(losses) / len(losses),
+            "accuracy": sum(accuracies) / len(accuracies),
+        }
 def get_server_fn(mlflow=None):
  """Create server function with MLflow tracking."""
  def server_fn(context: Context) -> ServerAppComponents:
-
+    global strategy
     if strategy=="fedavg":
-      strategy = FedAVGWithEval(
+      
+      strategyi = FedAVGWithEval(
       fraction_fit=1.0,  # Train with 50% of available clients
       fraction_evaluate=0.5,  # Evaluate with all available clients
       min_fit_clients=3,
       min_evaluate_clients=2,
       min_available_clients=3,
+      evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Add this
 
       #on_evaluate_config_fn=get_on_evaluate_config_fn(),
 )
+      print(f'strategy ggg {strategyi}')
     else: 
-      strategy = server.GPAFStrategy(
+      strategyi = server.GPAFStrategy(
         fraction_fit=1.0,  # Ensure all clients participate in training
         #fraction_evaluate=1.0,
         min_fit_clients=3,  # Set minimum number of clients for training
@@ -212,9 +186,9 @@ def get_server_fn(mlflow=None):
      
       )
 
-      # Configure the server for 5 rounds of training
-      config = ServerConfig(num_rounds=10)
-      return ServerAppComponents(strategy=strategy, config=config)
+    # Configure the server for 5 rounds of training
+    config = ServerConfig(num_rounds=5)
+    return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 
    
@@ -256,12 +230,20 @@ def main(cfg: DictConfig) -> None:
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
        )
-      client = ClientApp(client_fn=client_fn)
+      
     else:
       # Create the ClientApp
-      client = ClientApp(client_fn=client_fn)
+      client_fn = gen_client_fn(
+        num_clients=cfg.num_clients,
+        num_epochs=cfg.num_epochs,
+        trainloaders=trainloaders,
+        valloaders=valloaders,
+        num_rounds=cfg.num_rounds,
+        learning_rate=cfg.learning_rate,
+        model=get_model("swim")
+       )
 
-    
+    client = ClientApp(client_fn=client_fn)
     print(f'fffffff {client_fn}')
     # get function that will executed by the strategy's evaluate() method
     # Set server's device
@@ -298,7 +280,6 @@ def main(cfg: DictConfig) -> None:
       
     )
 
-    # Experiment completed. Now we save the results and
     # generate plots using the `history`
     print("................")
     print(history)
