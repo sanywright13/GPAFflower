@@ -30,7 +30,6 @@ from fedprox.strategy import FedAVGWithEval
 from fedprox.models import get_model
 #from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
-
 import mlflow
 from pyngrok import ngrok
 import subprocess
@@ -44,7 +43,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="fedavg"
  # Create or get experiment
-experiment_name = "GPAF_Medical_FL12"
+experiment_name = "GPAF_Medical_FL13"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -128,7 +127,6 @@ def visualize_intensity_distributions(trainloaders: List[DataLoader], num_client
         cbar_kws={'label': 'Value'}
     )
     ax2.set_title('Statistical Measures of Pixel Distributions', fontsize=12)
-    
     plt.tight_layout()
     plt.savefig('intensity_distributions.png', dpi=300, bbox_inches='tight')
     plt.close()
@@ -141,9 +139,6 @@ def visualize_intensity_distributions(trainloaders: List[DataLoader], num_client
         for metric, value in stats[client].items():
             print(f"  {metric}: {value:.4f}")
 
-
-
-    
 
 def evaluate_metrics_aggregation_fn(eval_metrics: List[Tuple[int, Dict[str, float]]]) -> Dict[str, float]:
         """Aggregate evaluation metrics from multiple clients."""
@@ -203,9 +198,6 @@ def get_server_fn(mlflow=None):
     return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 
-   
-
-
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     global experiment_name
@@ -254,9 +246,7 @@ def main(cfg: DictConfig) -> None:
        )
 
     client = ClientApp(client_fn=client_fn)
-
     device = cfg.server_device
-  
     def get_on_fit_config():
         def fit_config_fn(server_round: int):
             # resolve and convert to python dict
@@ -281,26 +271,20 @@ def main(cfg: DictConfig) -> None:
        
       
     )
-
     # generate plots using the `history`
-    print("................")
     print(history)
 
-    # Hydra automatically creates an output directory
-    # Let's retrieve it and save some results there
+
     save_path = HydraConfig.get().runtime.output_dir
 
-    # save results as a Python pickle using a file_path
-    # the directory created by Hydra for each run
     save_results_as_pickle(history, file_path=save_path, extra_results={})
-    #server.keep_alive()
     
 def data_load(cfg: DictConfig):
   trainloaders, valloaders, testloader = load_datasets(
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=False
+        domain_shift=True
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":

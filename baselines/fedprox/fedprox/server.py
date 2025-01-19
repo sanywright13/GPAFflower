@@ -70,7 +70,7 @@ class GPAFStrategy(FedAvg):
                 "min_fit_clients": min_fit_clients,
                 "fraction_fit": fraction_fit
             })
-
+         
         print(f"Created MLflow run for server: {self.server_run_id}")
         #on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         # Initialize the generator and its optimizer here
@@ -99,9 +99,7 @@ class GPAFStrategy(FedAvg):
         num_classes=self.num_classes,           # number of classes in your dataset
 
           )
-       
-        
-
+               
     def initialize_parameters(self, client_manager):
         print("=== Initializing Parameters ===")
         # Initialize your models
@@ -119,11 +117,7 @@ class GPAFStrategy(FedAvg):
         '''
         for i, param in enumerate(ndarrays):
           print(f"  Param {i}: type={type(param)}, shape={param.shape if isinstance(param, np.ndarray) else 'N/A'}")
-        '''
-        #parameters = ndarrays_to_parameters(ndarrays)
-        # Check for scalar arrays       
-        # Debugging: Print parameter shapes and type
-        #print(f"Parameters content: {type(parameters)}")
+        '''        
         
         return parameters
         
@@ -175,8 +169,7 @@ class GPAFStrategy(FedAvg):
                     f"accuracy_client_{client_id}": accuracy
                 }, step=server_round)
 
-            
-           
+                      
         # Calculate average accuracy
         avg_accuracy = sum(accuracies.values()) / len(accuracies)
         # Only visualize if we have all the data and accuracy improved
@@ -241,8 +234,6 @@ class GPAFStrategy(FedAvg):
         if self.evaluate_fn is None:
             # No evaluation function provided
             return None
-
-   
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: flwr.server.client_manager.ClientManager
