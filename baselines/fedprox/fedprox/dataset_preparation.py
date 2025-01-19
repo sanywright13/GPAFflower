@@ -75,12 +75,12 @@ class SameModalityDomainShift:
     def _generate_client_characteristics(self) -> Dict:
         equipment_profiles = {
         # original form
-            'high_end': {
-                'noise_level': 0.00,
-                'contrast_range': (0.0, 0.0),
-                'brightness_shift': 0.00,
-                'resolution_factor': 0.0
-            },
+           'high_end': {
+    'noise_level': 0.00,        # No noise
+    'contrast_range': (1.0, 1.0),  # No contrast change
+    'brightness_shift': 0.00,    # No brightness shift
+    'resolution_factor': 1.0     # No resolution change
+},
             'mid_range': {
                 'noise_level': 0.04,
                 'contrast_range': (0.8, 1.2),
@@ -97,6 +97,7 @@ class SameModalityDomainShift:
         
         profiles = list(equipment_profiles.values())
         base_profile = profiles[self.client_id % len(profiles)]
+        print(f'client id : {self.client_id} and {base_profile}')
         
         characteristics = {
             'noise_level': base_profile['noise_level'] * np.random.uniform(0.9, 1.1),
