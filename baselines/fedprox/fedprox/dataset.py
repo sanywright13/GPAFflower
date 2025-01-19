@@ -6,7 +6,7 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, random_split
 
-from fedprox.dataset_preparation import _partition_data,build_transform, create_domain_shifted_loaders
+from fedprox.dataset_preparation import _partition_data,build_transform, create_domain_shifted_loaders,buid_domain_transform
 
 
 def load_datasets(  # pylint: disable=too-many-arguments
@@ -24,12 +24,14 @@ def load_datasets(  # pylint: disable=too-many-arguments
     #print(f' train loader example {datasets[0]}')
     # Create domain-shifted dataloaders
     if domain_shift==True:
+      domain_transform=buid_domain_transform()
       trainloaders, valloaders, testset = create_domain_shifted_loaders(
          config.dataset_name,
         num_clients,
         batch_size
         ,
-        transform
+        domain_transform,
+        domain_shift
       )
     else:
       datasets, testset ,validsets= _partition_data(

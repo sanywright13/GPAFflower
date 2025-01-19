@@ -11,6 +11,10 @@ from torchvision.datasets import MNIST
 import os
 import torch.utils.data as data
 
+def  normalize_tensor(x: torch.Tensor):
+    
+        return x / 255.0 if x.max() > 1.0 else x
+
 def build_transform():  
     t = []
     t.append(transforms.ToTensor())
@@ -27,6 +31,20 @@ def build_transform():
     return transforms.Compose(t)
 
 
+def buid_domain_transform():
+    t = []
+    
+    #t.append(transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4))
+    #t.append(transforms.Grayscale(num_output_channels=1))  # Keep single channel
+    t.append(transforms.RandomHorizontalFlip(p=0.5))
+    t.append(transforms.RandomRotation(degrees=45))
+    #t.append(transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2))
+    t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5))
+    
+  
+    #t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    t.append(transforms.Normalize([0.5], [0.5]))  # For grayscale data
+    return transforms.Compose(t)
 import numpy as np
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader, Subset
@@ -56,11 +74,12 @@ class SameModalityDomainShift:
         
     def _generate_client_characteristics(self) -> Dict:
         equipment_profiles = {
+        # original form
             'high_end': {
-                'noise_level': 0.02,
-                'contrast_range': (0.9, 1.1),
-                'brightness_shift': 0.05,
-                'resolution_factor': 1.0
+                'noise_level': 0.00,
+                'contrast_range': (0.0, 0.0),
+                'brightness_shift': 0.00,
+                'resolution_factor': 0.0
             },
             'mid_range': {
                 'noise_level': 0.04,
@@ -87,11 +106,23 @@ class SameModalityDomainShift:
         }
         
         return characteristics
+    def ensure_tensor(self, img):
+        """Ensure the image is a PyTorch tensor."""
+        if isinstance(img, np.ndarray):
+            # Convert numpy array to tensor
+            img = torch.from_numpy(img)
+        if img.dtype != torch.float32:
+            img = img.float()
+        if len(img.shape) == 2:
+            # Add channel dimension if missing
+            img = img.unsqueeze(0)
+        return img
     
     def apply_transform(self, img: torch.Tensor) -> torch.Tensor:
         """Apply domain shift transformation."""
        
         # 2. Contrast adjustment
+        img = self.ensure_tensor(img)
         img = img * self.characteristics['contrast_scale']
         
         # 3. Brightness shift
@@ -103,46 +134,6 @@ class SameModalityDomainShift:
         
         return torch.clamp(img, 0, 1)
 
-def build_augmentation_transforms(is_training: bool = True):
-    """Build data augmentation pipeline."""
-    if is_training:
-        # Training augmentations
-        transform_list = [
-            # Geometric augmentations
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(
-                degrees=10,
-                fill=0,
-            ),
-            transforms.RandomAffine(
-                degrees=0,
-                translate=(0.1, 0.1),
-                scale=(0.9, 1.1),
-                fill=0
-            ),
-            
-            # Intensity augmentations
-            transforms.RandomApply([
-                transforms.ColorJitter(
-                    brightness=0.2,
-                    contrast=0.2
-                )
-            ], p=0.3),
-            
-            # Noise and blur
-            transforms.RandomApply([
-                transforms.GaussianBlur(
-                    kernel_size=3,
-                    sigma=(0.1, 2.0)
-                )
-            ], p=0.2),
-        ]
-    else:
-        # Validation/test - no augmentation
-        transform_list = []
-    
-    return transforms.Compose(transform_list)
-
 
 
 def create_domain_shifted_loaders(
@@ -151,6 +142,7 @@ def create_domain_shifted_loaders(
     batch_size: int
 ,
     transform
+    ,domain_shift
 ) -> Tuple[List[DataLoader], List[DataLoader]]:
     """Create domain-shifted dataloaders for each client."""
     trainloaders = []
@@ -158,8 +150,8 @@ def create_domain_shifted_loaders(
     root_path=os.getcwd()
     for client_id in range(num_clients):
         # Apply domain shift to training data
-        shifted_trainset=BreastMnistDataset(root_path,prefix='train',client_id=client_id,
-            num_clients=num_clients)
+        shifted_trainset=BreastMnistDataset(root_path,prefix='train',transform=transform,client_id=client_id,
+            num_clients=num_clients,domain_shifti=domain_shift)
 
         trainloaders.append(DataLoader(
             shifted_trainset,
@@ -167,8 +159,8 @@ def create_domain_shifted_loaders(
             shuffle=True
         ))
 
-        shifted_valset=BreastMnistDataset(root_path,prefix='valid',client_id=client_id,
-            num_clients=num_clients)
+        shifted_valset=BreastMnistDataset(root_path,prefix='valid',transform=transform,client_id=client_id,
+            num_clients=num_clients,domain_shifti=domain_shift)
         valloaders.append(DataLoader(
             shifted_valset,
             batch_size=batch_size
@@ -201,26 +193,29 @@ def makeBreastnistdata(root_path, prefix):
 #then the purpose of this code is split a dataset among a number of clients and choose the way of spliting if it is iid or no iid etc
 class BreastMnistDataset(data.Dataset):
       
-    def __init__(self,root,prefix, transform=None,client_id=0, num_clients=0, domain_shift=False ):
+    def __init__(self,root,prefix, transform=None,client_id=0, num_clients=0, domain_shifti=False ):
       data,labels= makeBreastnistdata(root, prefix='train')
       self.data=data
       self.labels  = labels  
-      if domain_shift==True and client_id is not None:
-         print(f' domain shift enabled')
+      self.domain_shifti=domain_shifti
+      print(f' domain shift : client id {client_id} and {domain_shifti}')
+      if self.domain_shifti==True and client_id is not None:
+         #print(f' domain shift enabled')
          modality="MRI"
+         
          # Domain shift transform (fixed per client)
          self.domain_shift = SameModalityDomainShift(
             client_id=client_id,
             modality=modality,
             seed=42
           )
+        
       if transform:
         # Data augmentation (random per image)
 
-        self.trasnform=transform
+        self.transform=transform
          
-      else:
-        self.transform = transform
+  
     def __len__(self):
         self.filelength = len(self.labels)
         return self.filelength
@@ -228,9 +223,22 @@ class BreastMnistDataset(data.Dataset):
     def __getitem__(self, idx):
         #print(f'data : {self.data[idx]}')
         image =self.data[idx]
+        if self.domain_shifti :
+       
+          # Normalize if needed
+          image = normalize_tensor(image)
+          image = self.domain_shift.apply_transform(image)
+
         label = self.labels[idx]
         if self.transform:
-            image = self.transform(image)
+          if self.domain_shifti:
+           #we already have torch type
+           # If it's a tensor, ensure proper format
+           image = image.float()
+           if len(image.shape) == 2:
+              image = image.unsqueeze(0)
+           
+          image = self.transform(image)
         
         return image, label
     @property
