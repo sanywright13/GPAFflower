@@ -41,94 +41,109 @@ def compute_label_distribution(labels: torch.Tensor, num_classes: int) -> Dict[i
     label_counts = torch.bincount(labels, minlength=num_classes).float()
     label_probs = label_counts / label_counts.sum()
     return {label: label_probs[label].item() for label in range(num_classes)}
-class DomainShiftTransform:
-    """Implements medical image-specific domain shifts."""
-    def __init__(self, shift_params: Dict):
-        self.shift_params = shift_params
-        
-    def __call__(self, img: torch.Tensor) -> torch.Tensor:
-        # Apply configured transformations
-        if self.shift_params.get('contrast_factor', 0) != 0:
-            img = transforms.functional.adjust_contrast(
-                img, 
-                1 + self.shift_params['contrast_factor']
-            )
-            
-        if self.shift_params.get('brightness_factor', 0) != 0:
-            img = transforms.functional.adjust_brightness(
-                img, 
-                1 + self.shift_params['brightness_factor']
-            )
-            
-        if self.shift_params.get('noise_factor', 0) != 0:
-            noise = torch.randn_like(img) * self.shift_params['noise_factor']
-            img = img + noise
-            img = torch.clamp(img, 0, 1)
-            
-        if self.shift_params.get('blur_factor', 0) != 0:
-            kernel_size = int(3 + 2 * self.shift_params['blur_factor'])
-            img = transforms.functional.gaussian_blur(
-                img,
-                kernel_size,
-                self.shift_params['blur_factor']
-            )
-            
-        return img
 
-def build_domain_shift_transform(client_id: int, num_clients: int) -> Dict:
-    """Create client-specific domain shift parameters."""
-    # Define different domain shift patterns based on client ID
-    shift_patterns = {
-        'hospital_1': {
-            'contrast_factor': 0.2,
-            'brightness_factor': 0.1,
-            'noise_factor': 0.0,
-            'blur_factor': 0.0
-        },
-        'hospital_2': {
-            'contrast_factor': -0.1,
-            'brightness_factor': 0.2,
-            'noise_factor': 0.05,
-            'blur_factor': 0.0
-        },
-        'hospital_3': {
-            'contrast_factor': 0.0,
-            'brightness_factor': 0.0,
-            'noise_factor': 0.0,
-            'blur_factor': 0.0
-        },
+
+class SameModalityDomainShift:
+    """Domain shift for same imaging modality across different clients."""
+    def __init__(self, client_id: int, modality: str = "CT", seed: int = 42):
+        self.client_id = client_id
+        self.modality = modality
         
-    }
+        # Set random seed for reproducible client characteristics
+        np.random.seed(seed + client_id)
+        self.characteristics = self._generate_client_characteristics()
+        np.random.seed(None)
+        
+    def _generate_client_characteristics(self) -> Dict:
+        equipment_profiles = {
+            'high_end': {
+                'noise_level': 0.02,
+                'contrast_range': (0.9, 1.1),
+                'brightness_shift': 0.05,
+                'resolution_factor': 1.0
+            },
+            'mid_range': {
+                'noise_level': 0.04,
+                'contrast_range': (0.8, 1.2),
+                'brightness_shift': 0.1,
+                'resolution_factor': 0.9
+            },
+            'older_model': {
+                'noise_level': 0.06,
+                'contrast_range': (0.7, 1.3),
+                'brightness_shift': 0.15,
+                'resolution_factor': 0.8
+            }
+        }
+        
+        profiles = list(equipment_profiles.values())
+        base_profile = profiles[self.client_id % len(profiles)]
+        
+        characteristics = {
+            'noise_level': base_profile['noise_level'] * np.random.uniform(0.9, 1.1),
+            'contrast_scale': np.random.uniform(*base_profile['contrast_range']),
+            'brightness_shift': base_profile['brightness_shift'] * np.random.uniform(0.9, 1.1),
+            'resolution_factor': base_profile['resolution_factor']
+        }
+        
+        return characteristics
     
-    # Assign patterns cyclically to clients
-    hospital_patterns = list(shift_patterns.values())
-    client_pattern = hospital_patterns[client_id % len(hospital_patterns)]
+    def apply_transform(self, img: torch.Tensor) -> torch.Tensor:
+        """Apply domain shift transformation."""
+       
+        # 2. Contrast adjustment
+        img = img * self.characteristics['contrast_scale']
+        
+        # 3. Brightness shift
+        img = img + self.characteristics['brightness_shift']
+        
+        # 4. Add noise
+        noise = torch.randn_like(img) * self.characteristics['noise_level']
+        img = img + noise
+        
+        return torch.clamp(img, 0, 1)
+
+def build_augmentation_transforms(is_training: bool = True):
+    """Build data augmentation pipeline."""
+    if is_training:
+        # Training augmentations
+        transform_list = [
+            # Geometric augmentations
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomRotation(
+                degrees=10,
+                fill=0,
+            ),
+            transforms.RandomAffine(
+                degrees=0,
+                translate=(0.1, 0.1),
+                scale=(0.9, 1.1),
+                fill=0
+            ),
+            
+            # Intensity augmentations
+            transforms.RandomApply([
+                transforms.ColorJitter(
+                    brightness=0.2,
+                    contrast=0.2
+                )
+            ], p=0.3),
+            
+            # Noise and blur
+            transforms.RandomApply([
+                transforms.GaussianBlur(
+                    kernel_size=3,
+                    sigma=(0.1, 2.0)
+                )
+            ], p=0.2),
+        ]
+    else:
+        # Validation/test - no augmentation
+        transform_list = []
     
-    return client_pattern
-def build_transform_with_domain_shift(client_id: int, num_clients: int):
-    """Build transformation pipeline with domain shift."""
-    # Base transformations
-    base_transforms = [
-        transforms.ToTensor(),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(degrees=45),
-        transforms.RandomApply(
-            [transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))],
-            p=0.5
-        )
-    ]
-    
-    # Add domain shift transform
-    domain_params = build_domain_shift_transform(client_id, num_clients)
-    domain_transform = DomainShiftTransform(domain_params)
-    
-    # Final normalization
-    final_transforms = [
-        domain_transform,
-        transforms.Normalize([0.5], [0.5])
-    ]
-    
-    return transforms.Compose(base_transforms + final_transforms)    
+    return transforms.Compose(transform_list)
+
+
 
 def create_domain_shifted_loaders(
    root_path,
@@ -191,7 +206,19 @@ class BreastMnistDataset(data.Dataset):
       self.data=data
       self.labels  = labels  
       if domain_shift==True and client_id is not None:
-         self.transform = build_transform_with_domain_shift(client_id, num_clients)
+         print(f' domain shift enabled')
+         modality="MRI"
+         # Domain shift transform (fixed per client)
+         self.domain_shift = SameModalityDomainShift(
+            client_id=client_id,
+            modality=modality,
+            seed=42
+          )
+      if transform:
+        # Data augmentation (random per image)
+
+        self.trasnform=transform
+         
       else:
         self.transform = transform
     def __len__(self):
