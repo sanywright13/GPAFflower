@@ -19,19 +19,17 @@ from fedprox.utils import save_results_as_pickle
 import mlflow
 from  mlflow.tracking import MlflowClient
 import time
-from pyngrok import ngrok
 import nest_asyncio
 from flwr.common import ConfigsRecord, MetricsRecord, ParametersRecord
 import os
 import subprocess
-from fedprox.mlflowtracker import setup_tracking
+#from fedprox.mlflowtracker import setup_tracking
 from fedprox.features_visualization import StructuredFeatureVisualizer
 from fedprox.strategy import FedAVGWithEval
 from fedprox.models import get_model
 #from fedprox.models import Generator
 FitConfig = Dict[str, Union[bool, float]]
 import mlflow
-from pyngrok import ngrok
 import subprocess
 import os
 import time
@@ -41,7 +39,7 @@ import torch
 import numpy as np
 from typing import List
 from torch.utils.data import DataLoader
-strategy="fedavg"
+strategy="gpaf"
  # Create or get experiment
 experiment_name = "GPAF_Medical_FL16"
 experiment = mlflow.get_experiment_by_name(experiment_name)
@@ -184,6 +182,7 @@ def get_server_fn(mlflow=None):
 )
       print(f'strategy ggg {strategyi}')
     else: 
+      print(f'strategy of method {strategy}')
       strategyi = server.GPAFStrategy(
         fraction_fit=1.0,  # Ensure all clients participate in training
         #fraction_evaluate=1.0,
@@ -284,7 +283,7 @@ def data_load(cfg: DictConfig):
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=True
+        domain_shift=False
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":

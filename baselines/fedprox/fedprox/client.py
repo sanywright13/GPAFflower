@@ -300,7 +300,7 @@ experiment_name =None
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=35
-        strategy='fedavg'
+        strategy='gpaf'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
             encoder,

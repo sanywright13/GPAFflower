@@ -321,13 +321,7 @@ class GPAFStrategy(FedAvg):
                     count = int(float(prob) * client_num_samples)
                     global_label_counts[label] = global_label_counts.get(label, 0) + count
                     total_samples += count
-        # Log all accuracies at once for easy comparison
-        """
-        self.mlflow.log_metrics(accuracy_metrics, step=server_round)
-        # Calculate and log average accuracy
-        avg_accuracy = sum(accuracy_metrics.values()) / len(accuracy_metrics)
-        self.mlflow.log_metric("average_accuracy", avg_accuracy, step=server_round)
-        """    
+         
         # Compute global label probabilities
         if total_samples > 0:
             self.label_probs = {
@@ -380,11 +374,7 @@ class GPAFStrategy(FedAvg):
         #train the globel generator
         
         self._train_generator(self.label_probs,classifier_params_list)
-        # Aggregate other parameters
-        #aggregated_params = self._aggregate_parameters(client_parameters)
-        # Get generator parameters to send to clients
-        #self.generator_params = self.get_generator_parameters()
-        # Log metrics using mlflow directly
+     
         with self.mlflow.start_run(run_id=self.server_run_id):  
 
             self.mlflow.log_metrics({

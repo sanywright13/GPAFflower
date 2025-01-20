@@ -87,15 +87,30 @@ def get_model(model_name):
 Tensor = torch.FloatTensor
 class StochasticGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
-         super().__init__()
-         self.fc1 = nn.Linear(noise_dim + label_dim, hidden_dim)
-         self.fc2 = nn.Linear(hidden_dim, output_dim)
-    
-    def forward(self, noise, label):
-        x = torch.cat((noise, label), dim=1)
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        super().__init__()
+        self.noise_dim = noise_dim
+        self.label_dim = label_dim
+        
+        # Enhanced architecture for better conditional generation
+        self.label_embedding = nn.Linear(label_dim, hidden_dim)
+        self.noise_mapping = nn.Linear(noise_dim, hidden_dim)
+        
+        self.main = nn.Sequential(
+            nn.Linear(2*hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, output_dim)
+        )
+        
+    def forward(self, noise, labels):
+        # Process noise and labels separately then concatenate
+        label_features = self.label_embedding(labels)
+        noise_features = self.noise_mapping(noise)
+        combined = torch.cat([noise_features, label_features], dim=1)
+        return self.main(combined)
 def reparameterize(mu, logvar):
 
     std = torch.exp(0.5 * logvar)  # Standard deviation
