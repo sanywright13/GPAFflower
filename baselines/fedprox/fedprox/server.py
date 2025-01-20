@@ -13,7 +13,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 import json
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation
+from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation,ServerDiscriminator
 from fedprox.utils import save_z_to_file
 from flwr.server.client_proxy import ClientProxy
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
@@ -88,8 +88,18 @@ class GPAFStrategy(FedAvg):
             hidden_dim=self.hidden_dim,
             output_dim=self.output_dim,
         )
-        #self.generator = StochasticGenerator(self.latent_dim, self.num_classes)
+
+        #initiliaze global descriminator 
+        # Initialize server discriminator with GRL
+        self.server_discriminator = ServerDiscriminator(
+            feature_dim=self.latent_dim, 
+            num_domains=self.num_classes
+        ).to(self.device)
         self.optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.001)
+        self.discriminator_optimizer = torch.optim.Adam(
+            self.server_discriminator.parameters(), 
+            lr=0.0002
+        )
         # Initialize label_probs with a default uniform distribution
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
@@ -267,9 +277,19 @@ class GPAFStrategy(FedAvg):
       
       # Serialize generator parameters into a JSON string
       generator_params_serialized = json.dumps([param.tolist() for param in generator_numpy_params])
+      
+      # 3. Get discriminator state
+      discriminator_state = {
+        k: v.cpu().numpy() 
+        for k, v in self.server_discriminator.state_dict().items()
+    }
+      discriminator_params_serialized = json.dumps(
+        {k: v.tolist() for k, v in discriminator_state.items()}
+    )
       config = {
             "round": server_round,
             "generator_params": generator_params_serialized,
+            "discriminator_state": discriminator_params_serialized
         }
 
       client_proxies = client_manager.sample(
@@ -303,7 +323,10 @@ class GPAFStrategy(FedAvg):
         # Aggregate label distributions
         global_label_counts = {}
         total_samples = 0
-
+        # Extract features and weights from clients
+        features_list = []
+        weights_list = []
+        domain_labels = []
         # Aggregate label counts
         accuracy_metrics = {}
         for client_proxy, fit_res in results:
@@ -312,6 +335,13 @@ class GPAFStrategy(FedAvg):
                 label_distribution = json.loads(label_distribution_str)
                 client_num_samples = fit_res.num_examples
                 accuracy = fit_res.metrics.get("accuracy", 0.0)
+                # Get client's features
+                client_features = torch.tensor(
+                fit_res.metrics["features"]).to(self.device)
+                features_list.append(client_features)
+                # Create domain labels for this client
+                domain_label = int(client_proxy.cid)
+                domain_labels.extend([domain_label] * client_features.size(0))
                 #client_id = client_proxy.cid  # This is how we access the client ID
                 #accuracy_metrics[f"accuracy_client_{client_id}"] = accuracy
                 
@@ -360,7 +390,26 @@ class GPAFStrategy(FedAvg):
             encoder_params_list.append(encoder_params)
             classifier_params_list.append(classifier_params)
             num_samples_list.append(fit_res.num_examples)
+
+        # Train server discriminator
+        all_features = torch.cat(features_list, dim=0)
+        domain_labels = torch.tensor(domain_labels).long().to(device)
+        
+        # Multiple training iterations for discriminator
+        for _ in range(5):
+            self.discriminator_optimizer.zero_grad()
             
+            # Forward pass through discriminator (includes GRL)
+            domain_predictions = self.server_discriminator(all_features)
+            
+            # Compute discriminator loss
+            d_loss = F.cross_entropy(domain_predictions, domain_labels)
+            
+            # Update discriminator
+            d_loss.backward()
+            self.discriminator_optimizer.step()
+
+
         if not encoder_params_list or not classifier_params_list:
             print("No valid parameters to aggregate")
             return None, {}
@@ -373,6 +422,7 @@ class GPAFStrategy(FedAvg):
         
         #train the globel generator
         
+
         self._train_generator(self.label_probs,classifier_params_list)
      
         with self.mlflow.start_run(run_id=self.server_run_id):  
@@ -383,7 +433,13 @@ class GPAFStrategy(FedAvg):
                 "num_failures": len(failures),
                 "total_samples": sum(r.num_examples for _, r in results)
             }, step=server_round)
-        return ndarrays_to_parameters(aggregated_params),{}
+
+        # Prepare config for next round
+        config = {
+            "server_round": server_round,
+            "discriminator_state": self.server_discriminator.state_dict()
+        }
+        return ndarrays_to_parameters(aggregated_params),config
         
     def _fedavg_parameters(
         self, params_list: List[List[np.ndarray]], num_samples_list: List[int]

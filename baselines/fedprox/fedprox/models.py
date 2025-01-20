@@ -86,23 +86,39 @@ def get_model(model_name):
   return model
 Tensor = torch.FloatTensor
 # First, let's define the GRL layer for client side
-class GradientReversalFunction(Function):
+
+class GradientReversalFunction(torch.autograd.Function):
+    """
+    Custom autograd function for gradient reversal.
+    Forward: Acts as identity function
+    Backward: Reverses gradient by multiplying by -lambda
+    """
     @staticmethod
     def forward(ctx, x, lambda_):
+        # Store lambda for backward pass
         ctx.lambda_ = lambda_
+        # Forward pass is identity function
         return x.clone()
 
     @staticmethod
     def backward(ctx, grad_output):
+        # Reverse gradient during backward pass
+        # grad_output: gradient from subsequent layer
+        # -lambda * gradient gives us gradient reversal
         return ctx.lambda_ * grad_output.neg(), None
 
 class GradientReversalLayer(nn.Module):
+    """
+    Gradient Reversal Layer.
+    Implements gradient reversal for adversarial training.
+    """
     def __init__(self, lambda_=1.0):
         super().__init__()
         self.lambda_ = lambda_
         
     def forward(self, x):
         return GradientReversalFunction.apply(x, self.lambda_)
+        
 class StochasticGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
          super().__init__()
@@ -114,6 +130,27 @@ class StochasticGenerator(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+
+class ServerDiscriminator(nn.Module):
+    def __init__(self, feature_dim, num_domains):
+        super().__init__()
+        # Gradient Reversal Layer
+        self.grl = GradientReversalLayer()
+        # Discriminator architecture
+        self.discriminator = nn.Sequential(
+            nn.Linear(feature_dim, 512),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, num_domains)
+        )
+
+    def forward(self, x, lambda_=1.0):
+        self.grl.lambda_ = lambda_
+        # Apply GRL before discrimination
+        x = self.grl(x)
+        return self.discriminator(x)
 
 def reparameterize(mu, logvar):
 
@@ -270,7 +307,7 @@ discriminator,
     device: torch.device,
     client_id,
     epochs: int,
-   global_generator
+   global_generator,server_discriminator
     ):
 
 # 
@@ -281,12 +318,12 @@ discriminator,
     net = train_one_epoch_gpaf(
         encoder,
 classifier,discriminator , trainloader, device,client_id,
-            epochs,global_generator
+            epochs,global_generator,server_discriminator
         )
   
 #we must add a classifier that classifier into a binary categories
 #send back the classifier parameter to the server
-def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,server_discriminator=None,verbose=False):
     """Train the network on the training set."""
     #print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
@@ -334,9 +371,8 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
 
             # Fake loss: Discriminator should classify local features as 0
             local_features = encoder(real_imgs)
-            # Pass features through GRL before discriminator
-            reversed_features = grl(local_features)
-            domain_outputs = discriminator(reversed_features)
+            
+            
             # Fake loss: Discriminator should classify local features as 0
             #local_features = encoder(real_imgs)
             fake_labels = torch.zeros(real_imgs.size(0), 1 , dtype=torch.float32)  # Fake labels
@@ -359,7 +395,19 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             #discriminator(local_features)
             g_loss = criterion(discriminator(local_features), real_labels)
             g_loss.backward()
-            optimizer_E.step()
+            
+
+            #local minimizing federated adverserial loss
+
+            # Federated adversarial loss - make features domain invariant
+            if server_discriminator is not None:
+                domain_preds = server_discriminator(local_features)
+                fed_adv_loss = F.cross_entropy(domain_preds, labels)  # GRL handles reversal
+                total_loss = g_loss + fed_adv_loss
+            else:
+                total_loss = g_loss
+                
+            total_loss.backward(retain_graph=True)
 
             #Classification loss with label
             
@@ -375,6 +423,8 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             cls_loss.backward()
             optimizer_C.step()
 
+            #encoder update
+            optimizer_E.step()
             # Compute accuracy
             _, predicted = torch.max(logits.data, 1)
             total += labels.size(0)

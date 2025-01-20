@@ -26,7 +26,7 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
-from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator
+from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator,GradientReversalLayer,ServerDiscriminator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 class FederatedClient(fl.client.NumPyClient):
@@ -51,6 +51,11 @@ class FederatedClient(fl.client.NumPyClient):
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
         self.global_generator = StochasticGenerator(noise_dim=64, label_dim=2, hidden_dim=256  , output_dim=64)
+        # Initialize server discriminator with GRL
+        self.server_discriminator = ServerDiscriminator(
+            feature_dim=64, 
+            num_domains=self.num_classes
+        ).to(self.device)
         self. mlflow= mlflow
         self.grl = GradientReversalLayer().to(self.device)  # Add GRL layer
         # Initialize optimizers
@@ -220,12 +225,21 @@ class FederatedClient(fl.client.NumPyClient):
         for batch in self.traindata:
           _, labels = batch
           all_labels.append(labels)
+
+        # 3. Load discriminator state
+        discriminator_state_serialized = config.get("discriminator_state", "{}")
+        discriminator_state = json.loads(discriminator_state_serialized)
+        discriminator_state = {
+        k: torch.tensor(np.array(v)).to(self.device) 
+        for k, v in discriminator_state.items()
+    }
+        self.server_discriminator.load_state_dict(discriminator_state)
         all_labels = torch.cat(all_labels).squeeze().to(self.device)
         label_distribution = compute_label_distribution(all_labels, self.num_classes)
         # Serialize the label distribution to a JSON string
         label_distribution_str = json.dumps(label_distribution)
        
-        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator)
+        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,self.server_discriminator)
       
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')        
