@@ -104,13 +104,22 @@ class StochasticGenerator(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Linear(hidden_dim, output_dim)
         )
-        
+    
     def forward(self, noise, labels):
-        # Process noise and labels separately then concatenate
-        label_features = self.label_embedding(labels)
-        noise_features = self.noise_mapping(noise)
+        # Ensure inputs are 2D (batch_size, dim)
+        if noise.dim() == 1:
+            noise = noise.unsqueeze(0)  # Add batch dimension
+        if labels.dim() == 1:
+            labels = labels.unsqueeze(0)  # Add batch dimension
+            
+        # Process noise and labels separately
+        label_features = self.label_embedding(labels)  # Shape: (batch_size, hidden_dim)
+        noise_features = self.noise_mapping(noise)     # Shape: (batch_size, hidden_dim)
+        
+        # Concatenate along feature dimension
         combined = torch.cat([noise_features, label_features], dim=1)
         return self.main(combined)
+
 def reparameterize(mu, logvar):
 
     std = torch.exp(0.5 * logvar)  # Standard deviation
