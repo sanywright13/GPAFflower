@@ -52,6 +52,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.discriminator.to(self.device)
         self.global_generator = StochasticGenerator(noise_dim=64, label_dim=2, hidden_dim=256  , output_dim=64)
         self. mlflow= mlflow
+        self.grl = GradientReversalLayer().to(self.device)  # Add GRL layer
         # Initialize optimizers
         self.optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
         self.optimizer_classifier = torch.optim.Adam(self.classifier.parameters())
@@ -211,7 +212,7 @@ class FederatedClient(fl.client.NumPyClient):
 
         # Convert NumPy arrays to PyTorch tensors
         generator_params_tensors = [torch.tensor(param , dtype=torch.float32) for param in generator_params_ndarrays]
-
+        print(f'generator client {self.global_generator}')
         # Load generator parameters into the generator model
         for param, tensor in zip(self.global_generator.parameters(), generator_params_tensors):
           param.data = tensor.to(self.device)

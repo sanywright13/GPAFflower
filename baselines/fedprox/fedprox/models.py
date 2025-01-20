@@ -85,40 +85,35 @@ def get_model(model_name):
 
   return model
 Tensor = torch.FloatTensor
+# First, let's define the GRL layer for client side
+class GradientReversalFunction(Function):
+    @staticmethod
+    def forward(ctx, x, lambda_):
+        ctx.lambda_ = lambda_
+        return x.clone()
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return ctx.lambda_ * grad_output.neg(), None
+
+class GradientReversalLayer(nn.Module):
+    def __init__(self, lambda_=1.0):
+        super().__init__()
+        self.lambda_ = lambda_
+        
+    def forward(self, x):
+        return GradientReversalFunction.apply(x, self.lambda_)
 class StochasticGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
-        super().__init__()
-        self.noise_dim = noise_dim
-        self.label_dim = label_dim
-        
-        # Enhanced architecture for better conditional generation
-        self.label_embedding = nn.Linear(label_dim, hidden_dim)
-        self.noise_mapping = nn.Linear(noise_dim, hidden_dim)
-        
-        self.main = nn.Sequential(
-            nn.Linear(2*hidden_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.LeakyReLU(0.2),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.LeakyReLU(0.2),
-            nn.Linear(hidden_dim, output_dim)
-        )
-    
-    def forward(self, noise, labels):
-        # Ensure inputs are 2D (batch_size, dim)
-        if noise.dim() == 1:
-            noise = noise.unsqueeze(0)  # Add batch dimension
-        if labels.dim() == 1:
-            labels = labels.unsqueeze(0)  # Add batch dimension
-            
-        # Process noise and labels separately
-        label_features = self.label_embedding(labels)  # Shape: (batch_size, hidden_dim)
-        noise_features = self.noise_mapping(noise)     # Shape: (batch_size, hidden_dim)
-        
-        # Concatenate along feature dimension
-        combined = torch.cat([noise_features, label_features], dim=1)
-        return self.main(combined)
+         super().__init__()
+         self.fc1 = nn.Linear(noise_dim + label_dim, hidden_dim)
+         self.fc2 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, noise, label):
+        x = torch.cat((noise, label), dim=1)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
 def reparameterize(mu, logvar):
 
@@ -316,11 +311,11 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             batch_size = 13
             noise = torch.randn(batch_size, 64, dtype=torch.float32).to(DEVICE)
             labels_onehot = F.one_hot(labels.long(), num_classes=2).float()
-            #print(f'real_imgs eee ftrze{labels_onehot.dtype} and {noise.dtype}')
+            print(f'real_imgs eee ftrze{labels_onehot.shape} and {noise.shape}')
             noise = torch.tensor(noise, dtype=torch.float32)
             with torch.no_grad():
                     
-                    global_z = global_generator(noise, labels_onehot)
+              global_z = global_generator(noise, labels_onehot)
             # ---------------------
             # Train Discriminator
             # ---------------------
@@ -339,7 +334,9 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
 
             # Fake loss: Discriminator should classify local features as 0
             local_features = encoder(real_imgs)
-            
+            # Pass features through GRL before discriminator
+            reversed_features = grl(local_features)
+            domain_outputs = discriminator(reversed_features)
             # Fake loss: Discriminator should classify local features as 0
             #local_features = encoder(real_imgs)
             fake_labels = torch.zeros(real_imgs.size(0), 1 , dtype=torch.float32)  # Fake labels
