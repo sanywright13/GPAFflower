@@ -310,7 +310,7 @@ experiment_name =None
         input_dim = 28  # Example: 28x28 images flattened
         hidden_dim = 128
         latent_dim = 64
-        num_classes = 2  # Example: MNIST has 10 classes
+        num_classes = 2  
         
         encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
@@ -322,12 +322,11 @@ experiment_name =None
         # Initialize the feature visualizer for all clients
         feature_visualizer = StructuredFeatureVisualizer(
         num_clients=num_clients,  # total number of clients
-        num_classes=2,           # number of classes in your dataset
 
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=5
+        num_epochs=35
         strategy='gpaf'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(

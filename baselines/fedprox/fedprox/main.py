@@ -41,7 +41,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="gpaf"
  # Create or get experiment
-experiment_name = "GPAF_Medical_FL16"
+experiment_name = "GPAF_Fed_FL1"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -193,7 +193,7 @@ def get_server_fn(mlflow=None):
       )
 
     # Configure the server for 5 rounds of training
-    config = ServerConfig(num_rounds=5)
+    config = ServerConfig(num_rounds=10)
     return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 
@@ -271,7 +271,7 @@ def main(cfg: DictConfig) -> None:
       
     )
     # generate plots using the `history`
-    print(history)
+    
 
 
     save_path = HydraConfig.get().runtime.output_dir

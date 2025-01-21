@@ -345,11 +345,8 @@ class GPAFStrategy(FedAvg):
                 # Create domain labels (which client/domain these features come from)
               
 
-                batch_domain_labels = torch.full((client_features.size(0),), 
-                                       fill_value=domain_idx,  # Use domain_idx as the label
-                                       dtype=torch.long,
-                                       device=self.device)                       
-                domain_labels.append(batch_domain_labels)
+                # Add domain labels for each sample in this client's batch
+                domain_labels.extend([domain_idx] * client_features.size(0))                     
         
                 weights_list.append(fit_res.parameters)
                 # Accumulate label counts
@@ -400,8 +397,7 @@ class GPAFStrategy(FedAvg):
 
         # Train server discriminator
         all_features = torch.cat(features_list, dim=0)
-        domain_labels = torch.tensor(domain_labels).long().to(self.device)
-        
+        all_domain_labels = torch.tensor(domain_labels, dtype=torch.long, device=self.device)        
         # Multiple training iterations for discriminator
         for _ in range(5):
             self.discriminator_optimizer.zero_grad()
@@ -410,7 +406,7 @@ class GPAFStrategy(FedAvg):
             domain_predictions = self.server_discriminator(all_features)
             
             # Compute discriminator loss
-            d_loss = F.cross_entropy(domain_predictions, domain_labels)
+            d_loss = F.cross_entropy(domain_predictions, all_domain_labels)
             
             # Update discriminator
             d_loss.backward()
