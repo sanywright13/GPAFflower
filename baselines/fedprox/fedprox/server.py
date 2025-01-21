@@ -110,6 +110,7 @@ class GPAFStrategy(FedAvg):
         num_clients=3,  # total number of clients
         num_classes=self.num_classes,           # number of classes in your dataset
 
+save_dir="feature_visualizations_gpaf"
           )
                
     def initialize_parameters(self, client_manager):
@@ -155,8 +156,7 @@ class GPAFStrategy(FedAvg):
         accuracies = {}
         self.current_features = {}
         self.current_labels = {}
-        import base64
-        import pickle
+      
         # Extract all accuracies from evaluation
         with self.mlflow.start_run(run_id=self.server_run_id):  
 
@@ -186,7 +186,7 @@ class GPAFStrategy(FedAvg):
         avg_accuracy = sum(accuracies.values()) / len(accuracies)
         # Only visualize if we have all the data and accuracy improved
         if avg_accuracy > self.best_avg_accuracy:
-        
+          print(f'==visualization===')
           self.best_avg_accuracy = avg_accuracy
           self.feature_visualizer.visualize_all_clients_by_class(
             features_dict=self.current_features,
@@ -442,6 +442,12 @@ class GPAFStrategy(FedAvg):
             "server_round": server_round,
             "discriminator_state": self.server_discriminator.state_dict()
         }
+        # Clear memory
+        del features_list
+        del all_features
+        del all_domain_labels
+        del domain_predictions
+        
         return ndarrays_to_parameters(aggregated_params),config
         
     def _fedavg_parameters(

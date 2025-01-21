@@ -256,6 +256,9 @@ class FederatedClient(fl.client.NumPyClient):
         all_features = np.concatenate(features, axis=0)
         all_features_serialized = base64.b64encode(pickle.dumps(all_features)).decode('utf-8')
         # Fixed return statement
+        # Clear memory
+        del features
+        del all_features
         return (
         self.get_parameters(),
         len(self.traindata),
@@ -322,7 +325,8 @@ experiment_name =None
         # Initialize the feature visualizer for all clients
         feature_visualizer = StructuredFeatureVisualizer(
         num_clients=num_clients,  # total number of clients
-
+num_classes=num_classes,
+save_dir="feature_visualizations_gpaf"
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
