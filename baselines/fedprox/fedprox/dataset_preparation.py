@@ -259,8 +259,8 @@ def _download_data() -> Tuple[Dataset, Dataset]:
 
 
 class DataSplitManager:
-    def __init__(self, config: DictConfig, num_clients: int, batch_size: int, seed: int = 42):
-        self.config = config
+    def __init__(self, num_clients: int, batch_size: int, seed: int = 42):
+       
         self.num_clients = num_clients
         self.batch_size = batch_size
         self.seed = seed
@@ -336,6 +336,23 @@ class DataSplitManager:
         train_splits = torch.load(self.get_split_path('train'))
         val_splits = torch.load(self.get_split_path('val'))
         test_split = torch.load(self.get_split_path('test'))
+    def create_new_splits(self):
+        """Create new data splits."""
+        # Use your existing load_datasets function
+        from fedprox.dataset import load_datasets
+        #split the data for first time
+        trainloaders, valloaders, testloader = load_datasets(
+            config=self.config.dataset_config,
+            num_clients=self.num_clients,
+            batch_size=self.batch_size,
+            domain_shift=False,
+            seed=self.seed
+        )
+        
+        # Save the splits
+        self.save_splits(trainloaders, valloaders, testloader)
+        
+        return trainloaders, valloaders, testloader
 
 # pylint: disable=too-many-locals
 def _partition_data(
@@ -349,15 +366,31 @@ def _partition_data(
     domain_shift=False
     
 ) -> Tuple[List[Dataset], Dataset]:
-   
+    root_path=os.getcwd()
     if dataset_name=='breastmnist':
       
-      #breasmnist dataset i already deploy it in huggerface
-      root_path=os.getcwd()
-      #print(f' configuration of my code {root_path}')
       trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
       testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
       validset=BreastMnistDataset(root_path,prefix='valid',transform=transform)
+      trainloaders=[]
+      valloaders = []
+      batch_size=13
+      train_splits, val_splits = DataSplitManager(
+   
+        num_clients=num_clients,
+        batch_size=13,
+        seed=42
+      ).load_splits()
+      root_path=os.getcwd()
+      # Create client-specific dataloaders
+      for train_split, val_split in zip(train_splits, val_splits):
+            # Create subset datasets
+            trainset = Subset(trainset, train_split['indices'])
+            validset = Subset(validset, val_split['indices'])
+            
+      #print(f' configuration of my code {root_path}')
+      
+    
     else:
       trainset, testset = _download_data()
     if balance:

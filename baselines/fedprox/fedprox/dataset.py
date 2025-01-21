@@ -34,12 +34,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
         domain_shift
       )
     else:
-      train_splits, val_splits = DataSplitManager(
-   
-        num_clients=num_clients,
-        batch_size=batch_size,
-        seed=42
-      ).load_splits()
+     
       datasets, testset ,validsets= _partition_data(
         num_clients,
         config.dataset_name,

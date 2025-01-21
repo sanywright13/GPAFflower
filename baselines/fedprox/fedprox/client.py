@@ -330,7 +330,7 @@ save_dir="feature_visualizations"
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=35
+        num_epochs=3
         strategy='fedavg'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
