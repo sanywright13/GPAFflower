@@ -14,6 +14,8 @@ import json
 from flwr.client import NumPyClient, Client
 from flwr.common import ConfigsRecord, MetricsRecord, ParametersRecord
 from  mlflow.tracking import MlflowClient
+import base64
+import pickle
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
@@ -155,8 +157,7 @@ class FederatedClient(fl.client.NumPyClient):
                # f"client_{self.client_id}/eval_samples": samples
             }, step=config.get("server_round"))
             # Also log in format for easier plotting
-        import base64
-        import pickle
+        
         #visualize all clients features per class
         features_np = val_features.detach().cpu().numpy()
         labels_np = val_labels.detach().cpu().numpy().reshape(-1)  # Ensure 1D array
@@ -243,7 +244,17 @@ class FederatedClient(fl.client.NumPyClient):
       
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')        
-      
+        # Extract features for server
+        features = []
+        with torch.no_grad():
+          for data, _ in self.traindata:
+            data = data.to(self.device)
+            feat = self.encoder(data)
+            features.append(feat.cpu().numpy())
+    
+        # Concatenate all features
+        all_features = np.concatenate(features, axis=0)
+        all_features_serialized = base64.b64encode(pickle.dumps(all_features)).decode('utf-8')
         # Fixed return statement
         return (
         self.get_parameters(),
@@ -251,6 +262,8 @@ class FederatedClient(fl.client.NumPyClient):
         {
             "num_encoder_params": num_encoder_params,
             "label_distribution": label_distribution_str,
+            "features": all_features_serialized,
+
         
         }
     )
@@ -314,7 +327,7 @@ experiment_name =None
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=35
+        num_epochs=5
         strategy='gpaf'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(

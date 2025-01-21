@@ -348,7 +348,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             batch_size = 13
             noise = torch.randn(batch_size, 64, dtype=torch.float32).to(DEVICE)
             labels_onehot = F.one_hot(labels.long(), num_classes=2).float()
-            print(f'real_imgs eee ftrze{labels_onehot.shape} and {noise.shape}')
+            #print(f'real_imgs eee ftrze{labels_onehot.shape} and {noise.shape}')
             noise = torch.tensor(noise, dtype=torch.float32)
             with torch.no_grad():
                     
@@ -379,7 +379,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
             #print(f'local train feat {discriminator(local_features.detach()).shape}')
             #print(f'local encoder features {local_features}')
-            encoder(real_imgs)
+            
             # Total discriminator loss
             d_loss = 0.5 * (real_loss + fake_loss)
             d_loss.backward()
@@ -393,21 +393,25 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             #print(f'discrim:  {discriminator(local_features).shape}')
             # Generator loss: Generator should fool the discriminator
             #discriminator(local_features)
-            g_loss = criterion(discriminator(local_features), real_labels)
-            g_loss.backward()
             
+            # Get fresh features for encoder training
+            local_features = encoder(images)
+            
+            g_loss = criterion(discriminator(local_features), real_labels)
 
             #local minimizing federated adverserial loss
 
             # Federated adversarial loss - make features domain invariant
+            # Server adversarial loss
             if server_discriminator is not None:
-                domain_preds = server_discriminator(local_features)
-                fed_adv_loss = F.cross_entropy(domain_preds, labels)  # GRL handles reversal
-                total_loss = g_loss + fed_adv_loss
+              domain_preds = server_discriminator(local_features)
+              fed_adv_loss = F.cross_entropy(domain_preds, labels)
+              encoder_loss = g_loss + fed_adv_loss
             else:
-                total_loss = g_loss
-                
-            total_loss.backward(retain_graph=True)
+              encoder_loss = g_loss
+        
+            encoder_loss.backward()
+            optimizer_E.step()
 
             #Classification loss with label
             
@@ -423,8 +427,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             cls_loss.backward()
             optimizer_C.step()
 
-            #encoder update
-            optimizer_E.step()
+            
             # Compute accuracy
             _, predicted = torch.max(logits.data, 1)
             total += labels.size(0)

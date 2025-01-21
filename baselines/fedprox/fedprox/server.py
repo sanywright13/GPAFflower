@@ -5,6 +5,8 @@ from typing import Callable, Dict, Optional, Tuple
 #from MulticoreTSNE import print_function
 import flwr
 import mlflow
+import base64
+import pickle
 import torch
 from typing import List, Tuple, Optional, Dict, Callable, Union
 from flwr.common.typing import NDArrays, Scalar
@@ -329,22 +331,27 @@ class GPAFStrategy(FedAvg):
         domain_labels = []
         # Aggregate label counts
         accuracy_metrics = {}
-        for client_proxy, fit_res in results:
+        for domain_idx, (client_proxy, fit_res) in enumerate(results):
                 # Parse label distribution from metrics
                 label_distribution_str = fit_res.metrics.get("label_distribution", "{}")
                 label_distribution = json.loads(label_distribution_str)
                 client_num_samples = fit_res.num_examples
                 accuracy = fit_res.metrics.get("accuracy", 0.0)
                 # Get client's features
-                client_features = torch.tensor(
-                fit_res.metrics["features"]).to(self.device)
+                features_serialized = fit_res.metrics["features"]
+                client_features = pickle.loads(base64.b64decode(features_serialized.encode('utf-8')))
+                client_features = torch.tensor(client_features).to(self.device)
                 features_list.append(client_features)
-                # Create domain labels for this client
-                domain_label = int(client_proxy.cid)
-                domain_labels.extend([domain_label] * client_features.size(0))
-                #client_id = client_proxy.cid  # This is how we access the client ID
-                #accuracy_metrics[f"accuracy_client_{client_id}"] = accuracy
-                
+                # Create domain labels (which client/domain these features come from)
+              
+
+                batch_domain_labels = torch.full((client_features.size(0),), 
+                                       fill_value=domain_idx,  # Use domain_idx as the label
+                                       dtype=torch.long,
+                                       device=self.device)                       
+                domain_labels.append(batch_domain_labels)
+        
+                weights_list.append(fit_res.parameters)
                 # Accumulate label counts
                 for label, prob in label_distribution.items():
                     label = int(label)
@@ -393,7 +400,7 @@ class GPAFStrategy(FedAvg):
 
         # Train server discriminator
         all_features = torch.cat(features_list, dim=0)
-        domain_labels = torch.tensor(domain_labels).long().to(device)
+        domain_labels = torch.tensor(domain_labels).long().to(self.device)
         
         # Multiple training iterations for discriminator
         for _ in range(5):
