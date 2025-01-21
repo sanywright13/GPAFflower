@@ -39,9 +39,9 @@ import torch
 import numpy as np
 from typing import List
 from torch.utils.data import DataLoader
-strategy="gpaf"
+strategy="fedavg"
  # Create or get experiment
-experiment_name = "GPAF_Fed_FL7"
+experiment_name = "fedavg_Fed_FL1"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -184,6 +184,7 @@ def get_server_fn(mlflow=None):
     else: 
       print(f'strategy of method {strategy}')
       strategyi = server.GPAFStrategy(
+        experiment_name,
         fraction_fit=1.0,  # Ensure all clients participate in training
         #fraction_evaluate=1.0,
         min_fit_clients=3,  # Set minimum number of clients for training
@@ -193,7 +194,7 @@ def get_server_fn(mlflow=None):
       )
 
     # Configure the server for 5 rounds of training
-    config = ServerConfig(num_rounds=8)
+    config = ServerConfig(num_rounds=6)
     return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 

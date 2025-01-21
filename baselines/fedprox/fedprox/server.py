@@ -42,16 +42,16 @@ from flwr.common import (
 class GPAFStrategy(FedAvg):
     def __init__(
         self,
-      
+       experiment_name,
         num_classes: int=2,
         fraction_fit: float = 1.0,
         min_fit_clients: int = 2,
             min_evaluate_clients : int =0,  # No clients for evaluation
    evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-   
+  
     ) -> None:
         super().__init__()
-        experiment_name = "GPAF_Medical_FL"
+        
 
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
@@ -110,7 +110,7 @@ class GPAFStrategy(FedAvg):
         num_clients=3,  # total number of clients
         num_classes=self.num_classes,           # number of classes in your dataset
 
-save_dir="feature_visualizations_gpaf"
+save_dir="feature_visualizations"
           )
                
     def initialize_parameters(self, client_manager):

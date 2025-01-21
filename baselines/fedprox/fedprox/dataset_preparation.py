@@ -14,6 +14,9 @@ import torch.utils.data as data
 def  normalize_tensor(x: torch.Tensor):
     
         return x / 255.0 if x.max() > 1.0 else x
+import numpy as np
+from collections import Counter
+from torch.utils.data import Dataset, DataLoader, Subset
 
 def build_transform():  
     t = []
@@ -33,21 +36,12 @@ def build_transform():
 
 def buid_domain_transform():
     t = []
-    
-    #t.append(transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4))
-    #t.append(transforms.Grayscale(num_output_channels=1))  # Keep single channel
     t.append(transforms.RandomHorizontalFlip(p=0.5))
     t.append(transforms.RandomRotation(degrees=45))
-    #t.append(transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2))
     t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5))
-    
-  
-    #t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
     t.append(transforms.Normalize([0.5], [0.5]))  # For grayscale data
     return transforms.Compose(t)
-import numpy as np
-from collections import Counter
-from torch.utils.data import Dataset, DataLoader, Subset
+
 def compute_label_counts(dataset):
    
     labels = [label for _, label in dataset]  # Extract labels from the dataset
@@ -262,6 +256,86 @@ def _download_data() -> Tuple[Dataset, Dataset]:
     testset = MNIST("./dataset", train=False, download=True, transform=transform)
     return trainset, testset
 
+
+
+class DataSplitManager:
+    def __init__(self, config: DictConfig, num_clients: int, batch_size: int, seed: int = 42):
+        self.config = config
+        self.num_clients = num_clients
+        self.batch_size = batch_size
+        self.seed = seed
+        self.splits_dir = os.path.join(os.getcwd(), 'data_splits')
+        os.makedirs(self.splits_dir, exist_ok=True)
+        
+    def get_split_path(self, split_type: str):
+        """Get path for split file."""
+        return os.path.join(
+            self.splits_dir, 
+            f'splits_clients_{self.num_clients}_seed_{self.seed}_{split_type}.pt'
+        )
+    
+    def splits_exist(self):
+        """Check if splits already exist."""
+        return (
+            os.path.exists(self.get_split_path('train')) and
+            os.path.exists(self.get_split_path('val')) and
+            os.path.exists(self.get_split_path('test'))
+        )
+    
+    def save_splits(self, trainloaders, valloaders, testloader):
+        """Save data splits to files."""
+        # Extract indices and labels from dataloaders
+        train_splits = [
+            {
+                'indices': self._get_indices(loader.dataset),
+                'labels': self._get_labels(loader.dataset)
+            }
+            for loader in trainloaders
+        ]
+        
+        val_splits = [
+            {
+                'indices': self._get_indices(loader.dataset),
+                'labels': self._get_labels(loader.dataset)
+            }
+            for loader in valloaders
+        ]
+        
+        test_split = {
+            'indices': self._get_indices(testloader.dataset),
+            'labels': self._get_labels(testloader.dataset)
+        }
+        
+        # Save splits to files
+        torch.save(train_splits, self.get_split_path('train'))
+        torch.save(val_splits, self.get_split_path('val'))
+        torch.save(test_split, self.get_split_path('test'))
+        print(f"✓ Saved splits to {self.splits_dir}")
+    
+    def _get_indices(self, dataset):
+        """Extract indices from dataset."""
+        if hasattr(dataset, 'indices'):
+            return dataset.indices
+        return list(range(len(dataset)))
+    
+    def _get_labels(self, dataset):
+        """Extract labels from dataset."""
+        if hasattr(dataset, 'targets'):
+            return dataset.targets
+        if hasattr(dataset, 'labels'):
+            return dataset.labels
+        return None
+    
+    def load_splits(self):
+        """Load splits and create dataloaders."""
+        if not self.splits_exist():
+            print("No existing splits found. Creating new splits...")
+            return self.create_new_splits()
+        
+        print("Loading existing splits...")
+        train_splits = torch.load(self.get_split_path('train'))
+        val_splits = torch.load(self.get_split_path('val'))
+        test_split = torch.load(self.get_split_path('test'))
 
 # pylint: disable=too-many-locals
 def _partition_data(

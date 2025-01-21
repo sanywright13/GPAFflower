@@ -6,7 +6,7 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, random_split
 
-from fedprox.dataset_preparation import _partition_data,build_transform, create_domain_shifted_loaders,buid_domain_transform
+from fedprox.dataset_preparation import _partition_data,build_transform, create_domain_shifted_loaders,buid_domain_transform, DataSplitManager
 
 
 def load_datasets(  # pylint: disable=too-many-arguments
@@ -34,6 +34,12 @@ def load_datasets(  # pylint: disable=too-many-arguments
         domain_shift
       )
     else:
+      train_splits, val_splits = DataSplitManager(
+   
+        num_clients=num_clients,
+        batch_size=batch_size,
+        seed=42
+      ).load_splits()
       datasets, testset ,validsets= _partition_data(
         num_clients,
         config.dataset_name,

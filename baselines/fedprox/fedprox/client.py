@@ -326,12 +326,12 @@ experiment_name =None
         feature_visualizer = StructuredFeatureVisualizer(
         num_clients=num_clients,  # total number of clients
 num_classes=num_classes,
-save_dir="feature_visualizations_gpaf"
+save_dir="feature_visualizations"
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=35
-        strategy='gpaf'
+        strategy='fedavg'
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
             encoder,
