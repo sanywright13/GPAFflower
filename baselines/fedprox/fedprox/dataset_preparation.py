@@ -139,31 +139,97 @@ def create_domain_shifted_loaders(
     transform
     ,domain_shift
 ) -> Tuple[List[DataLoader], List[DataLoader]]:
-    """Create domain-shifted dataloaders for each client."""
+   """Create domain-shifted dataloaders for each client."""
+    
+   root_path=os.getcwd()
+   der = DataSplitManager(
+        num_clients=num_clients,
+        batch_size=batch_size,
+        seed=42,
+        domain_shift=True
+    )
+   try:
     trainloaders = []
     valloaders = []
-    root_path=os.getcwd()
+    train_splits, val_splits= der.load_splits()
+    print("Loading existing splits for domain shift data...")
     for client_id in range(num_clients):
+        print(f'== client id for sanaa {client_id}')
         # Apply domain shift to training data
         shifted_trainset=BreastMnistDataset(root_path,prefix='train',transform=transform,client_id=client_id,
             num_clients=num_clients,domain_shifti=domain_shift)
-
+        # Create subsets using saved splits
+        train_subset = Subset(shifted_trainset, train_splits[client_id]['indices'])
+        
         trainloaders.append(DataLoader(
-            shifted_trainset,
+            train_subset,
             batch_size=batch_size,
             shuffle=True
         ))
 
         shifted_valset=BreastMnistDataset(root_path,prefix='valid',transform=transform,client_id=client_id,
             num_clients=num_clients,domain_shifti=domain_shift)
+        val_subset = Subset(shifted_valset, val_splits[client_id]['indices'])
         valloaders.append(DataLoader(
-            shifted_valset,
+            val_subset,
             batch_size=batch_size
         ))
+        testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
 
-    testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
-   
-    return trainloaders, valloaders , testset
+        #test_subset = Subset(testset, test_splits['indices'])
+        train_indices = train_splits[client_id]['indices']
+        val_indices = val_splits[client_id]['indices']
+        print(f"\nClient {client_id} data points:")
+        print(f"Last 5 training indices: {train_indices[5:]}")
+        print(f"Number of training samples: {len(train_indices)}")
+   except Exception as e:
+       
+        #print(f"No existing splits found. Creating new splits with domain shift... {e}")
+        # Create new splits
+        trainloaders = []
+        valloaders = []
+        
+        for client_id in range(num_clients):
+            print(f' client id for sanaa {client_id}')
+            shifted_trainset = BreastMnistDataset(
+                root_path,
+                prefix='train',
+                transform=transform,
+                client_id=client_id,
+                num_clients=num_clients,
+                domain_shifti=domain_shift
+            )
+            
+            shifted_valset = BreastMnistDataset(
+                root_path,
+                prefix='valid',
+                transform=transform,
+                client_id=client_id,
+                num_clients=num_clients,
+                domain_shifti=domain_shift
+            )
+            
+            trainloader = DataLoader(
+                shifted_trainset,
+                batch_size=batch_size,
+                shuffle=True
+            )
+            valloader = DataLoader(
+                shifted_valset,
+                batch_size=batch_size
+            )
+            
+            trainloaders.append(trainloader)
+            valloaders.append(valloader)
+           
+            
+       
+        testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
+
+        # Save the splits for future use
+        der.save_splits(trainloaders, valloaders,None)
+    
+   return trainloaders, valloaders , testset
 def makeBreastnistdata(root_path, prefix):
   print(f' root path {root_path}')
   data_path=os.path.join(root_path,'dataset')
@@ -225,6 +291,7 @@ class BreastMnistDataset(data.Dataset):
           image = self.domain_shift.apply_transform(image)
 
         label = self.labels[idx]
+        
         if self.transform:
           if self.domain_shifti:
            #we already have torch type
@@ -259,21 +326,18 @@ def _download_data() -> Tuple[Dataset, Dataset]:
 
 
 class DataSplitManager:
-    def __init__(self, num_clients: int, batch_size: int, seed: int = 42):
+    def __init__(self, num_clients: int, batch_size: int, seed: int = 42 ,domain_shift=False):
        
         self.num_clients = num_clients
         self.batch_size = batch_size
         self.seed = seed
-        self.splits_dir = os.path.join(os.getcwd(), 'data_splits')
+        
+        if domain_shift:
+          self.splits_dir = os.path.join(os.getcwd(), 'data_shift_splits')
+        else:
+         self.splits_dir = os.path.join(os.getcwd(), 'data_splits')
         os.makedirs(self.splits_dir, exist_ok=True)
         
-    def get_split_path(self, split_type: str):
-        """Get path for split file."""
-        return os.path.join(
-            self.splits_dir, 
-            f'splits_clients_{self.num_clients}_seed_{self.seed}_{split_type}.pt'
-        )
-    
     def splits_exist(self):
         """Check if splits already exist."""
         return (
@@ -282,9 +346,29 @@ class DataSplitManager:
             os.path.exists(self.get_split_path('test'))
         )
     
-    def save_splits(self, trainloaders, valloaders, testloader):
+    def get_split_path(self, split_type: str):
+        """Get path for split file."""
+        return os.path.join(
+            self.splits_dir, 
+            f'splits_clients_{self.num_clients}_seed_{self.seed}_{split_type}.pt'
+        )
+    def _get_indices(self, dataset):
+        """Extract indices from dataset."""
+        if hasattr(dataset, 'indices'):
+            return dataset.indices
+        return list(range(len(dataset)))
+    
+    def _get_labels(self, dataset):
+        """Extract labels from dataset."""
+        if hasattr(dataset, 'targets'):
+            return dataset.targets
+        if hasattr(dataset, 'labels'):
+            return dataset.labels
+        return None
+    def save_splits(self, trainloaders, valloaders, testloader=None):
         """Save data splits to files."""
         # Extract indices and labels from dataloaders
+        
         train_splits = [
             {
                 'indices': self._get_indices(loader.dataset),
@@ -300,59 +384,35 @@ class DataSplitManager:
             }
             for loader in valloaders
         ]
-        
-        test_split = {
+        if self.testloader:
+          test_split = {
             'indices': self._get_indices(testloader.dataset),
             'labels': self._get_labels(testloader.dataset)
-        }
+          }
+          torch.save(test_split, self.get_split_path('test'))
+
         
         # Save splits to files
         torch.save(train_splits, self.get_split_path('train'))
         torch.save(val_splits, self.get_split_path('val'))
-        torch.save(test_split, self.get_split_path('test'))
-        print(f"✓ Saved splits to {self.splits_dir}")
-    
-    def _get_indices(self, dataset):
-        """Extract indices from dataset."""
-        if hasattr(dataset, 'indices'):
-            return dataset.indices
-        return list(range(len(dataset)))
-    
-    def _get_labels(self, dataset):
-        """Extract labels from dataset."""
-        if hasattr(dataset, 'targets'):
-            return dataset.targets
-        if hasattr(dataset, 'labels'):
-            return dataset.labels
-        return None
-    
+        print(f"✓ Saved splits of domain shift to {self.splits_dir}")
     def load_splits(self):
         """Load splits and create dataloaders."""
+        
         if not self.splits_exist():
             print("No existing splits found. Creating new splits...")
-            return self.create_new_splits()
+            return False
         
         print("Loading existing splits...")
         train_splits = torch.load(self.get_split_path('train'))
         val_splits = torch.load(self.get_split_path('val'))
-        test_split = torch.load(self.get_split_path('test'))
-    def create_new_splits(self):
-        """Create new data splits."""
-        # Use your existing load_datasets function
-        from fedprox.dataset import load_datasets
-        #split the data for first time
-        trainloaders, valloaders, testloader = load_datasets(
-            config=self.config.dataset_config,
-            num_clients=self.num_clients,
-            batch_size=self.batch_size,
-            domain_shift=False,
-            seed=self.seed
-        )
         
-        # Save the splits
-        self.save_splits(trainloaders, valloaders, testloader)
-        
-        return trainloaders, valloaders, testloader
+       
+        print(f"Loaded splits format:")
+        print(f"Train splits type: {type(train_splits)}")
+        print(f"Sample indices type: {type(train_splits[0]['indices'])}")
+        return train_splits , val_splits 
+  
 
 # pylint: disable=too-many-locals
 def _partition_data(
@@ -368,55 +428,63 @@ def _partition_data(
 ) -> Tuple[List[Dataset], Dataset]:
     root_path=os.getcwd()
     if dataset_name=='breastmnist':
-      
+      root_path=os.getcwd()
       trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
       testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
       validset=BreastMnistDataset(root_path,prefix='valid',transform=transform)
       trainloaders=[]
       valloaders = []
       batch_size=13
-      train_splits, val_splits = DataSplitManager(
+      New_split=False
+      der=DataSplitManager(
    
         num_clients=num_clients,
         batch_size=13,
         seed=42
-      ).load_splits()
-      root_path=os.getcwd()
-      # Create client-specific dataloaders
-      for train_split, val_split in zip(train_splits, val_splits):
+        )
+      try:
+        datasets=[]
+        client_validsets=[]
+        train_splits, val_splits= der.load_splits()
+        # Create client-specific dataloaders
+        i=0
+        for train_split, val_split in zip(train_splits, val_splits):
             # Create subset datasets
-            trainset = Subset(trainset, train_split['indices'])
-            validset = Subset(validset, val_split['indices'])
-            
-      #print(f' configuration of my code {root_path}')
-      
+            train_subset = Subset(trainset, train_split['indices'])
+
+            valid_subset = Subset(validset, val_split['indices'])
+            #testset=Subset(testset, test_splits['indices'])
+            train_indices = train_split['indices']
+            val_indices = val_split['indices']
+            # Append to lists
+            # Print first few indices to verify consistency
+            print(f"\nClient {i} data points:")
+            print(f"Last 5 training indices: {train_indices[5:]}")
+            print(f"Number of training samples: {len(train_indices)}")
+            datasets.append(train_subset)
+            client_validsets.append(valid_subset)
+            i+=1
+        print(f' took the already splitting data')
+      except  Exception as e:
+        print(e)
+        print(f'new data splitting')
+        # Save the splits
+        New_split=True
+        if balance:
+          trainset = _balance_classes(trainset, seed)
+
+        partition_size = int(len(trainset) / num_clients)
+        print(f' par {partition_size} and len of train is {len(trainset)}')
+        lengths = [partition_size] * num_clients
+        partition_size_valid = int(len(validset) / num_clients)
+        lengths_valid = [partition_size_valid] * num_clients
     
-    else:
-      trainset, testset = _download_data()
-    if balance:
-        trainset = _balance_classes(trainset, seed)
+        if iid:
+          client_validsets = random_split(validset, lengths_valid, torch.Generator().manual_seed(seed))
 
-    partition_size = int(len(trainset) / num_clients)
-    print(f' par {partition_size} and len of train is {len(trainset)}')
-    lengths = [partition_size] * num_clients
-
-    
-
-    if balance:
-        trainset = _balance_classes(trainset, seed)
-
-    partition_size = int(len(trainset) / num_clients)
-    print(f' par {partition_size} and len of train is {len(trainset)}')
-    lengths = [partition_size] * num_clients
-    partition_size_valid = int(len(validset) / num_clients)
-    lengths_valid = [partition_size_valid] * num_clients
-    
-    if iid:
-        client_validsets = random_split(validset, lengths_valid, torch.Generator().manual_seed(seed))
-
-        datasets = random_split(trainset, lengths, torch.Generator().manual_seed(seed))
-    else:
-        if power_law:
+          datasets = random_split(trainset, lengths, torch.Generator().manual_seed(seed))
+        else:
+          if power_law:
             trainset_sorted = _sort_by_class(trainset)
             datasets = _power_law_split(
                 trainset_sorted,
@@ -426,7 +494,7 @@ def _partition_data(
                 mean=0.0,
                 sigma=2.0,
             )
-        else:
+          else:
             shard_size = int(partition_size / 2)
             idxs = trainset.targets.argsort()
             sorted_data = Subset(trainset, idxs)
@@ -445,7 +513,7 @@ def _partition_data(
                 for i in range(num_clients)
             ]
 
-    return datasets, testset , client_validsets
+    return datasets, testset , client_validsets , New_split
 
 
 def _balance_classes(

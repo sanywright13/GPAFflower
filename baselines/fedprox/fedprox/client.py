@@ -280,8 +280,8 @@ def gen_client_fn(
     valloaders: List[DataLoader],
     learning_rate: float,
     model=None,
-experiment_name =None
-    
+experiment_name =None,
+strategy='fedavg'    
 
 ) -> Callable[[Context], Client]:  # pylint: disable=too-many-arguments
     import mlflow
@@ -326,12 +326,12 @@ experiment_name =None
         feature_visualizer = StructuredFeatureVisualizer(
         num_clients=num_clients,  # total number of clients
 num_classes=num_classes,
-save_dir="feature_visualizations"
+save_dir="feature_visualizations_gpaf"
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
         num_epochs=3
-        strategy='fedavg'
+        
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
             encoder,

@@ -54,51 +54,48 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # partition dataset and get dataloaders
 
 def visualize_intensity_distributions(trainloaders: List[DataLoader], num_clients: int):
-    """
-    Visualize pixel intensity distributions across different clients.
-    
-    Args:
-        trainloaders: List of DataLoaders for each client
-        num_clients: Number of clients
-    """
     plt.figure(figsize=(12, 6))
-    
-    # Use different colors for each client
     colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'gray']
-    
-    # Create subplot for the distributions
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-    
-    # Store statistics for each client
     stats = {}
     
-    # Plot intensity distributions
     for client_id in range(num_clients):
-        # Get a batch of images
-        images, _ = next(iter(trainloaders[client_id]))
-        
-        # Convert to numpy and flatten
-        images_flat = images.view(-1).cpu().numpy()
-        
-        # Calculate statistics
-        mean_val = np.mean(images_flat)
-        std_val = np.std(images_flat)
-        median_val = np.median(images_flat)
-        
-        stats[f'Client {client_id}'] = {
-            'mean': mean_val,
-            'std': std_val,
-            'median': median_val
-        }
-        
-        # Plot distribution
-        sns.kdeplot(
-            data=images_flat,
-            ax=ax1,
-            color=colors[client_id % len(colors)],
-            label=f'Client {client_id}',
-            linewidth=2
-        )
+        try:
+            # Get the complete dataset for this client
+            client_dataset = trainloaders[client_id].dataset
+            all_images = []
+            
+            # Collect ALL images for this client
+            for idx in range(len(client_dataset)):
+                image, _ = client_dataset[idx]
+                all_images.append(image)
+            
+            # Convert to tensor and flatten
+            images_flat = torch.stack(all_images).float().cpu().numpy().flatten()
+            
+            # Calculate statistics using all data points
+            mean_val = np.mean(images_flat)
+            std_val = np.std(images_flat)
+            median_val = np.median(images_flat)
+            
+            stats[f'Client {client_id}'] = {
+                'mean': mean_val,
+                'std': std_val,
+                'median': median_val
+            }
+            
+            # Plot distribution using all data points
+            sns.kdeplot(
+                data=images_flat,
+                ax=ax1,
+                color=colors[client_id % len(colors)],
+                label=f'Client {client_id}',
+                linewidth=2
+            )
+            
+        except Exception as e:
+            print(f"Error processing client {client_id}: {str(e)}")
+            continue
     
     ax1.set_title('Pixel Intensity Distributions Across Clients', fontsize=12)
     ax1.set_xlabel('Pixel Value', fontsize=10)
@@ -113,7 +110,6 @@ def visualize_intensity_distributions(trainloaders: List[DataLoader], num_client
         stats[f'Client {i}']['median']
     ] for i in range(num_clients)])
     
-    # Plot statistics as a heatmap
     sns.heatmap(
         stats_data.T,
         ax=ax2,
@@ -125,19 +121,12 @@ def visualize_intensity_distributions(trainloaders: List[DataLoader], num_client
         cbar_kws={'label': 'Value'}
     )
     ax2.set_title('Statistical Measures of Pixel Distributions', fontsize=12)
+    
     plt.tight_layout()
     plt.savefig('intensity_distributions.png', dpi=300, bbox_inches='tight')
     plt.close()
+
     
-    # Print detailed statistics
-    print("\nDetailed Statistics:")
-    print("-" * 50)
-    for client in stats:
-        print(f"\n{client}:")
-        for metric, value in stats[client].items():
-            print(f"  {metric}: {value:.4f}")
-
-
 def evaluate_metrics_aggregation_fn(eval_metrics: List[Tuple[int, Dict[str, float]]]) -> Dict[str, float]:
         """Aggregate evaluation metrics from multiple clients."""
         # Unpack the evaluation metrics from each client
@@ -218,8 +207,10 @@ def main(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
 
     trainloaders, valloaders, testloader=data_load(cfg)
-    visualize_intensity_distributions(trainloaders,3)
- 
+    # Print data distribution before visualization
+   
+        
+    visualize_intensity_distributions(trainloaders, cfg.num_clients) 
     if strategy=="gpaf":
       client_fn = gen_client_fn(
         num_clients=cfg.num_clients,
@@ -228,7 +219,8 @@ def main(cfg: DictConfig) -> None:
         valloaders=valloaders,
         num_rounds=cfg.num_rounds,
         learning_rate=cfg.learning_rate,
-        experiment_name=experiment_name
+        experiment_name=experiment_name,
+        strategy=strategy
        )
       
     else:
@@ -243,6 +235,7 @@ def main(cfg: DictConfig) -> None:
         model=get_model("swim")
         ,
         experiment_name=experiment_name
+        ,strategy=strategy
        )
 
     client = ClientApp(client_fn=client_fn)
@@ -273,8 +266,6 @@ def main(cfg: DictConfig) -> None:
     )
     # generate plots using the `history`
     
-
-
     save_path = HydraConfig.get().runtime.output_dir
 
     save_results_as_pickle(history, file_path=save_path, extra_results={})
@@ -284,7 +275,7 @@ def data_load(cfg: DictConfig):
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=False
+        domain_shift=True
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":

@@ -110,7 +110,7 @@ class GPAFStrategy(FedAvg):
         num_clients=3,  # total number of clients
         num_classes=self.num_classes,           # number of classes in your dataset
 
-save_dir="feature_visualizations"
+save_dir="feature_visualizations_gpaf"
           )
                
     def initialize_parameters(self, client_manager):
