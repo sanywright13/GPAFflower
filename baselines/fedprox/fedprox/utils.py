@@ -8,121 +8,163 @@ from typing import Dict, Optional, Union
 import matplotlib.pyplot as plt
 import numpy as np
 from flwr.server.history import History
-def save_z_to_file(z_representation, filename):
-    """
-    Save the z representation (NumPy array) to a file.
-
-    Parameters:
-        z_representation (np.ndarray): The z representation to save.
-        filename (str): The name of the file to save the z representation to.
-    """
-    try:
-        # Save the z representation to the specified file
-        np.save(filename, z_representation)
-        print(f"z representation saved to {filename}")
-    except Exception as e:
-        print(f"Error saving z representation to {filename}: {e}")
-
-def plot_metric_from_history(
-    hist: History,
-    save_plot_path: str,
-    suffix: Optional[str] = "",
-) -> None:
-    """Plot from Flower server History.
-
-    Parameters
-    ----------
-    hist : History
-        Object containing evaluation for all rounds.
-    save_plot_path : str
-        Folder to save the plot to.
-    suffix: Optional[str]
-        Optional string to add at the end of the filename for the plot.
-    """
-    metric_type = "centralized"
-    metric_dict = (
-        hist.metrics_centralized
-        if metric_type == "centralized"
-        else hist.metrics_distributed
-    )
-    _, values = zip(*metric_dict["accuracy"])
-
-    # let's extract centralised loss (main metric reported in FedProx paper)
-    rounds_loss, values_loss = zip(*hist.losses_centralized)
-
-    _, axs = plt.subplots(nrows=2, ncols=1, sharex="row")
-    axs[0].plot(np.asarray(rounds_loss), np.asarray(values_loss))
-    axs[1].plot(np.asarray(rounds_loss), np.asarray(values))
-
-    axs[0].set_ylabel("Loss")
-    axs[1].set_ylabel("Accuracy")
-
-    # plt.title(f"{metric_type.capitalize()} Validation - MNIST")
-    plt.xlabel("Rounds")
-    # plt.legend(loc="lower right")
-
-    plt.savefig(Path(save_plot_path) / Path(f"{metric_type}_metrics{suffix}.png"))
-    plt.close()
 
 
-def save_results_as_pickle(
-    history: History,
-    file_path: Union[str, Path],
-    extra_results: Optional[Dict] = None,
-    default_filename: str = "results.pkl",
-) -> None:
-    """Save results from simulation to pickle.
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from typing import List, Dict
+import torch
+from torch.utils.data import DataLoader
+from collections import Counter
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from typing import List, Dict
+import torch
+from torch.utils.data import DataLoader
+from collections import Counter
+import pandas as pd
 
-    Parameters
-    ----------
-    history: History
-        History returned by start_simulation.
-    file_path: Union[str, Path]
-        Path to file to create and store both history and extra_results.
-        If path is a directory, the default_filename will be used.
-        path doesn't exist, it will be created. If file exists, a
-        randomly generated suffix will be added to the file name. This
-        is done to avoid overwritting results.
-    extra_results : Optional[Dict]
-        A dictionary containing additional results you would like
-        to be saved to disk. Default: {} (an empty dictionary)
-    default_filename: Optional[str]
-        File used by default if file_path points to a directory instead
-        to a file. Default: "results.pkl"
-    """
-    path = Path(file_path)
+class LabelDistributionVisualizer:
+    def __init__(self, num_clients: int, num_classes: int = 2):
+        self.num_clients = num_clients
+        self.num_classes = num_classes
+        # Use default matplotlib style instead of seaborn
+        plt.style.use('default')
+        
+    def compute_client_distributions(self, trainloaders: List[DataLoader]) -> List[Dict[int, float]]:
+        """Compute label distribution for each client."""
+        client_distributions = []
+        
+        for client_id, loader in enumerate(trainloaders):
+            # Get all labels for this client
+            all_labels = []
+            for _, labels in loader:
+                if isinstance(labels, torch.Tensor):
+                    labels = labels.numpy()
+                if len(labels.shape) > 1:
+                    labels = np.squeeze(labels)
+                all_labels.extend(labels)
+            
+            # Count labels
+            label_counts = Counter(all_labels)
+            total_samples = len(all_labels)
+            
+            # Calculate distribution
+            distribution = {
+                label: count/total_samples 
+                for label, count in label_counts.items()
+            }
+            
+            # Ensure all classes are represented
+            for label in range(self.num_classes):
+                if label not in distribution:
+                    distribution[label] = 0.0
+                    
+            client_distributions.append(distribution)
+            
+        return client_distributions
+    
+    def plot_label_distributions(self, trainloaders: List[DataLoader], save_path: str = 'label_distributions.png'):
+        """Create and save visualization of label distributions."""
+        client_distributions = self.compute_client_distributions(trainloaders)
+        
+        # Create figure with subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 16))
+        
+        # Prepare data for heatmap
+        data_for_heatmap = np.zeros((self.num_clients, self.num_classes))
+        for i, dist in enumerate(client_distributions):
+            for label in range(self.num_classes):
+                data_for_heatmap[i, label] = dist[label]
+        
+        # Plot heatmap
+        im = ax1.imshow(data_for_heatmap, aspect='auto', cmap='YlOrRd')
+        plt.colorbar(im, ax=ax1)
+        
+        # Add text annotations to heatmap
+        for i in range(self.num_clients):
+            for j in range(self.num_classes):
+                text = ax1.text(j, i, f'{data_for_heatmap[i, j]:.2%}',
+                              ha="center", va="center", color="black")
+        
+        # Configure heatmap axes
+        ax1.set_xticks(range(self.num_classes))
+        ax1.set_yticks(range(self.num_clients))
+        ax1.set_xticklabels([f'Class {i}' for i in range(self.num_classes)])
+        ax1.set_yticklabels([f'Client {i}' for i in range(self.num_clients)])
+        ax1.set_title('Label Distribution Heatmap Across Clients')
+        
+        # Prepare data for bar plot
+        client_ids = [f'Client {i}' for i in range(self.num_clients)]
+        class_data = {f'Class {i}': [] for i in range(self.num_classes)}
+        
+        for dist in client_distributions:
+            for label in range(self.num_classes):
+                class_data[f'Class {label}'].append(dist[label] * 100)
+        
+        # Plot grouped bar chart
+        x = np.arange(len(client_ids))
+        width = 0.8 / self.num_classes
+        
+        for i in range(self.num_classes):
+            ax2.bar(x + i * width, 
+                   class_data[f'Class {i}'], 
+                   width, 
+                   label=f'Class {i}')
+        
+        ax2.set_ylabel('Percentage of Samples')
+        ax2.set_title('Label Distribution Per Client')
+        ax2.set_xticks(x + width * (self.num_classes - 1) / 2)
+        ax2.set_xticklabels(client_ids)
+        ax2.legend()
+        
+        # Add percentage signs to y-axis
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.1f}%'.format(y)))
+        
+        # Compute and display statistical measures
+        total_samples = sum(len(loader.dataset) for loader in trainloaders)
+        global_distribution = {i: 0 for i in range(self.num_classes)}
+        
+        for dist in client_distributions:
+            for label, count in dist.items():
+                global_distribution[label] += count / self.num_clients
+                
+        stats_text = "Global Distribution:\n"
+        for label, percentage in global_distribution.items():
+            stats_text += f"Class {label}: {percentage:.1%}\n"
+            
+        plt.figtext(0.02, 0.02, stats_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.8))
+        
+        # Adjust layout and save
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        return client_distributions, global_distribution
 
-    # ensure path exists
-    path.mkdir(exist_ok=True, parents=True)
-
-    def _add_random_suffix(path_: Path):
-        """Add a randomly generated suffix to the file name (so it doesn't.
-
-        overwrite the file).
-        """
-        print(f"File `{path_}` exists! ")
-        suffix = token_hex(4)
-        print(f"New results to be saved with suffix: {suffix}")
-        return path_.parent / (path_.stem + "_" + suffix + ".pkl")
-
-    def _complete_path_with_default_name(path_: Path):
-        """Append the default file name to the path."""
-        print("Using default filename")
-        return path_ / default_filename
-
-    if path.is_dir():
-        path = _complete_path_with_default_name(path)
-
-    if path.is_file():
-        # file exists already
-        path = _add_random_suffix(path)
-
-    print(f"Results will be saved into: {path}")
-
-    data = {"history": history}
-    if extra_results is not None:
-        data = {**data, **extra_results}
-
-    # save results to pickle
-    with open(str(path), "wb") as handle:
-        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    def compute_distribution_metrics(self, client_distributions: List[Dict[int, float]]) -> Dict:
+        """Compute statistical metrics for label distributions."""
+        metrics = {}
+        
+        # Convert distributions to array for easier computation
+        distributions = np.zeros((self.num_clients, self.num_classes))
+        for i, dist in enumerate(client_distributions):
+            for j in range(self.num_classes):
+                distributions[i, j] = dist[j]
+        
+        # Compute metrics
+        metrics['mean_per_class'] = np.mean(distributions, axis=0)
+        metrics['std_per_class'] = np.std(distributions, axis=0)
+        metrics['min_per_class'] = np.min(distributions, axis=0)
+        metrics['max_per_class'] = np.max(distributions, axis=0)
+        
+        # Add distribution skewness metric
+        metrics['skewness_per_class'] = np.zeros(self.num_classes)
+        for j in range(self.num_classes):
+            if np.std(distributions[:, j]) > 0:  # Avoid division by zero
+                metrics['skewness_per_class'][j] = np.mean(((distributions[:, j] - np.mean(distributions[:, j])) / 
+                                                          np.std(distributions[:, j])) ** 3)
+        
+        return metrics

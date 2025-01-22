@@ -11,9 +11,14 @@ from fedprox.dataset_preparation import _partition_data,build_transform, create_
 
 
 
-def get_split_path(num_clients ,split_type: str,seed=42):
+def get_split_path(num_clients ,split_type: str,seed=42,domain_shift=False):
         """Get path for split file."""
-        splits_dir = os.path.join(os.getcwd(), 'data_splits')
+        
+        if domain_shift:
+          splits_dir = os.path.join(os.getcwd(), 'data_shift_splits')
+        
+        else:
+         splits_dir = os.path.join(os.getcwd(), 'data_splits')
         os.makedirs(splits_dir, exist_ok=True)
         return os.path.join(
             splits_dir, 
@@ -35,8 +40,9 @@ def _get_labels( dataset):
             return dataset.labels
         return None
     
-def save_splits(num_clients ,trainloaders, valloaders, testloader):
+def save_splits(num_clients ,trainloaders, valloaders, testloader,domain_shift=False):
         """Save data splits to files."""
+        
         # Extract indices and labels from dataloaders
         train_splits = [
             {
@@ -60,9 +66,9 @@ def save_splits(num_clients ,trainloaders, valloaders, testloader):
         }
         
         # Save splits to files
-        torch.save(train_splits,get_split_path(num_clients,'train'))
-        torch.save(val_splits, get_split_path(num_clients,'val'))
-        torch.save(test_split, get_split_path(num_clients,'test'))
+        torch.save(train_splits,get_split_path(num_clients,'train',domain_shift=domain_shift))
+        torch.save(val_splits, get_split_path(num_clients,'val',domain_shift=domain_shift))
+        torch.save(test_split, get_split_path(num_clients,'test',domain_shift=domain_shift))
         print(f"✓ Saved splits")
 def load_datasets(  # pylint: disable=too-many-arguments
     config: DictConfig,
@@ -80,7 +86,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
     # Create domain-shifted dataloaders
     if domain_shift==True:
       domain_transform=buid_domain_transform()
-      trainset, valsets, testset = create_domain_shifted_loaders(
+      trainset, valsets, testset,New_split = create_domain_shifted_loaders(
          config.dataset_name,
         num_clients,
         batch_size
@@ -90,13 +96,21 @@ def load_datasets(  # pylint: disable=too-many-arguments
       )
       trainloaders = []
       valloaders = []
+      
+   
+     
       for i,trainset in enumerate(trainset):
         
         trainloaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True))
         valloaders.append(DataLoader(valsets[i], batch_size=batch_size))
     
       testloaders=DataLoader(testset, batch_size=batch_size)
+      if New_split==True:
+       print(f'save New splitting')
+       # Save the splits
 
+       save_splits(num_clients,trainloaders, valloaders, testloaders,domain_shift=True)
+        
     else:
      
       datasets, testset ,validsets, New_split= _partition_data(

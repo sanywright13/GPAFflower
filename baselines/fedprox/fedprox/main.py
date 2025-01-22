@@ -15,7 +15,7 @@ from flwr.simulation import run_simulation
 from fedprox import client, server, utils
 from fedprox.client import gen_client_fn , FlowerClient
 from fedprox.dataset import load_datasets
-from fedprox.utils import save_results_as_pickle
+from fedprox.utils import LabelDistributionVisualizer
 import mlflow
 from  mlflow.tracking import MlflowClient
 import time
@@ -52,6 +52,8 @@ backend_config = {"client_resources": {"num_cpus":1 , "num_gpus": 0.0}}
 # When running on GPU, assign an entire GPU for each client
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')   
 # partition dataset and get dataloaders
+
+
 
 def visualize_intensity_distributions(trainloaders: List[DataLoader], num_clients: int):
     plt.figure(figsize=(12, 6))
@@ -211,6 +213,23 @@ def main(cfg: DictConfig) -> None:
    
         
     visualize_intensity_distributions(trainloaders, cfg.num_clients) 
+    # Visualize label distributions
+    visualizer = LabelDistributionVisualizer(
+        num_clients=cfg.num_clients,
+        num_classes=2  # For binary classification in breast cancer dataset
+    )
+    # Create visualization directory
+    viz_dir = os.path.join(os.getcwd(), 'visualizations')
+    # Generate and save visualizations
+    save_path = os.path.join(viz_dir, 'initial_label_distribution.png')
+    client_distributions, global_distribution = visualizer.plot_label_distributions(
+        trainloaders,
+        save_path=save_path
+    )
+    
+    # Log distribution metrics
+    distribution_metrics = visualizer.compute_distribution_metrics(client_distributions)
+    
     if strategy=="gpaf":
       client_fn = gen_client_fn(
         num_clients=cfg.num_clients,
@@ -268,14 +287,14 @@ def main(cfg: DictConfig) -> None:
     
     save_path = HydraConfig.get().runtime.output_dir
 
-    save_results_as_pickle(history, file_path=save_path, extra_results={})
+    #save_results_as_pickle(history, file_path=save_path, extra_results={})
     
 def data_load(cfg: DictConfig):
   trainloaders, valloaders, testloader = load_datasets(
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=True
+        domain_shift=False
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":

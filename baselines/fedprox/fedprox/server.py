@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 import json
 from flwr.server.strategy import Strategy,FedAvg
 from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation,ServerDiscriminator
-from fedprox.utils import save_z_to_file
+
 from flwr.server.client_proxy import ClientProxy
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 

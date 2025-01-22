@@ -137,7 +137,9 @@ def create_domain_shifted_loaders(
     batch_size: int
 ,
     transform
-    ,domain_shift
+    ,domain_shift,
+    balance=False,
+    iid=True,seed=42
 ) -> Tuple[List[DataLoader], List[DataLoader]]:
    """Create domain-shifted dataloaders for each client."""
     
@@ -149,8 +151,9 @@ def create_domain_shifted_loaders(
         domain_shift=True
     )
    try:
-    trainloaders = []
-    valloaders = []
+    datasets = []
+    client_validsets = []
+    New_split=False
     train_splits, val_splits= der.load_splits()
     print(f"Loading existing splits for domain shift data... {len(train_splits)}")
     #for client_id in range(num_clients):
@@ -171,6 +174,8 @@ def create_domain_shifted_loaders(
         #test_subset = Subset(testset, test_splits['indices'])
         train_indices = train_split['indices']
         val_indices = val_split['indices']
+        datasets.append(shifted_trainset)
+        client_validsets.append(shifted_valset)
         # Create and verify subsets
           
       
@@ -181,7 +186,7 @@ def create_domain_shifted_loaders(
        
         print(f"No existing splits found. Creating new splits with domain shift... {e}")
         # Create new splits
-       
+        New_split=True
         for client_id in range(num_clients):
             print(f' client id for sanaa {client_id}')
             shifted_trainset = BreastMnistDataset(
@@ -201,11 +206,27 @@ def create_domain_shifted_loaders(
                 num_clients=num_clients,
                 domain_shifti=domain_shift
             )
-        testset=BreastMnistDataset(root_path,prefix='test',transform=transform)    
+        if balance:
+              shifted_trainset = _balance_classes(shifted_trainset, seed)
+
+        partition_size = int(len(shifted_trainset) / num_clients)
+        print(f' par {partition_size} and len of train is {len(shifted_trainset)}')
+        lengths = [partition_size] * num_clients
+        partition_size_valid = int(len(shifted_valset) / num_clients)
+        lengths_valid = [partition_size_valid] * num_clients
+    
+        if iid:
+              client_validsets = random_split(shifted_valset, lengths_valid, torch.Generator().manual_seed(seed))
+
+              datasets = random_split(shifted_trainset, lengths, torch.Generator().manual_seed(seed))
+   testset=BreastMnistDataset(root_path,prefix='test',transform=transform)    
          
 
     
-   return shifted_trainset, shifted_valset , testset
+   return datasets, client_validsets , testset,New_split
+
+
+
 def makeBreastnistdata(root_path, prefix):
   print(f' root path {root_path}')
   data_path=os.path.join(root_path,'dataset')
