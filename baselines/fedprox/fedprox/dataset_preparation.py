@@ -426,6 +426,7 @@ def _partition_data(
     
 ) -> Tuple[List[Dataset], Dataset]:
     root_path=os.getcwd()
+    iid=False
     if dataset_name=='breastmnist':
       root_path=os.getcwd()
       trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
@@ -483,34 +484,23 @@ def _partition_data(
 
           datasets = random_split(trainset, lengths, torch.Generator().manual_seed(seed))
         else:
-          if power_law:
-            trainset_sorted = _sort_by_class(trainset)
-            datasets = _power_law_split(
-                trainset_sorted,
-                num_partitions=num_clients,
-                num_labels_per_partition=2,
-                min_data_per_partition=10,
-                mean=0.0,
-                sigma=2.0,
-            )
-          else:
-            shard_size = int(partition_size / 2)
-            idxs = trainset.targets.argsort()
-            sorted_data = Subset(trainset, idxs)
-            tmp = []
-            for idx in range(num_clients * 2):
-                tmp.append(
-                    Subset(
-                        sorted_data, np.arange(shard_size * idx, shard_size * (idx + 1))
-                    )
+
+          #drishlet distribution
+          # Non-IID splitting using Dirichlet distribution
+          alpha=0.5
+          min_size_ratio = 0.1  # Ensures each partition has at least 10% of average size
+          datasets = _dirichlet_split(
+                    trainset,
+                    num_clients,
+                    alpha=alpha,
+                    min_size_ratio = 0.1,  # Ensures each partition has at least 10% of average size,
+                    seed=seed
                 )
-            idxs_list = torch.randperm(
-                num_clients * 2, generator=torch.Generator().manual_seed(seed)
-            )
-            datasets = [
-                ConcatDataset((tmp[idxs_list[2 * i]], tmp[idxs_list[2 * i + 1]]))
-                for i in range(num_clients)
-            ]
+          print(f'dataset drichlet {datasets[0]}')      
+          partition_size_valid = int(len(validset) / num_clients)
+          lengths_valid = [partition_size_valid] * num_clients
+          client_validsets = random_split(validset, lengths_valid, 
+                                              torch.Generator().manual_seed(seed))
 
     return datasets, testset , client_validsets , New_split
 
@@ -555,9 +545,7 @@ def _balance_classes(
     return shuffled
 
 
-def _sort_by_class(
-    trainset: Dataset,
-) -> Dataset:
+def _sort_by_class(trainset: Dataset) -> Dataset:
     """Sort dataset by class/label.
 
     Parameters
@@ -570,21 +558,35 @@ def _sort_by_class(
     Dataset
         The sorted training dataset.
     """
-    class_counts = np.bincount(trainset.targets)
-    idxs = trainset.targets.argsort()  # sort targets in ascending order
+    # Convert targets to numpy array if they're tensors
+    if isinstance(trainset.targets, torch.Tensor):
+        targets = trainset.targets.numpy()
+    else:
+        targets = np.array(trainset.targets)
+    
+    # Calculate class counts
+    class_counts = np.bincount(targets)
+    
+    # Sort indices
+    idxs = np.argsort(targets)  # sort targets in ascending order
 
     tmp = []  # create subset of smallest class
     tmp_targets = []  # same for targets
 
     start = 0
     for count in np.cumsum(class_counts):
-        tmp.append(
-            Subset(trainset, idxs[start : int(count + start)])
-        )  # add rest of classes
-        tmp_targets.append(trainset.targets[idxs[start : int(count + start)]])
+        # Add rest of classes
+        subset_indices = idxs[start : int(count + start)]
+        tmp.append(Subset(trainset, subset_indices))
+        
+        # Convert targets to tensor before adding
+        subset_targets = targets[subset_indices]
+        tmp_targets.append(torch.from_numpy(subset_targets))
+        
         start += count
+        
     sorted_dataset = ConcatDataset(tmp)  # concat dataset
-    sorted_dataset.targets = torch.cat(tmp_targets)  # concat targets
+    sorted_dataset.targets = torch.cat(tmp_targets) 
     return sorted_dataset
 
 
@@ -625,12 +627,13 @@ def _power_law_split(
         The partitioned training dataset.
     """
     targets = sorted_trainset.targets
+    print(f' targets : {targets}')
     full_idx = list(range(len(targets)))
 
     class_counts = np.bincount(sorted_trainset.targets)
     labels_cs = np.cumsum(class_counts)
     labels_cs = [0] + labels_cs[:-1].tolist()
-
+    print(f' targets ctn: {class_counts}')
     partitions_idx: List[List[int]] = []
     num_classes = len(np.bincount(targets))
     hist = np.zeros(num_classes, dtype=np.int32)
@@ -655,11 +658,18 @@ def _power_law_split(
             hist[cls] += min_data_per_class
 
     # add remaining images following power-law
+    '''
     probs = np.random.lognormal(
         mean,
         sigma,
         (num_classes, int(num_partitions / num_classes), num_labels_per_partition),
     )
+    '''
+    probs = np.random.lognormal(
+    mean,
+    sigma,
+    (num_classes, num_partitions, num_labels_per_partition)  # Each client gets unique group
+)
     remaining_per_class = class_counts - hist
     # obtain how many samples each partition should be assigned for each of the
     # labels it contains
@@ -669,11 +679,15 @@ def _power_law_split(
         * probs
         / np.sum(probs, (1, 2), keepdims=True)
     )
-
+    
+    print(f' targets prob: {probs}')
+    print(f"Distribution probabilities shape: {probs.shape}")
+    print(f"Example probabilities for first few clients:\n{probs[:, :3, :]}")
     for u_id in range(num_partitions):
         for cls_idx in range(num_labels_per_partition):
             cls = (u_id + cls_idx) % num_classes
-            count = int(probs[cls, u_id // num_classes, cls_idx])
+            #count = int(probs[cls, u_id // num_classes, cls_idx])
+            count = int(probs[cls, u_id, cls_idx])  # u_id is the unique group for each client
 
             # add count of specific class to partition
             indices = full_idx[
@@ -684,4 +698,102 @@ def _power_law_split(
 
     # construct subsets
     partitions = [Subset(sorted_trainset, p) for p in partitions_idx]
+    return partitions
+
+def _dirichlet_split(
+    trainset: Dataset,
+    num_partitions: int,
+    alpha: float = 0.5,
+    min_size_ratio: float = 0.1,  # Minimum size of any partition as a ratio of average size
+    seed: int = 42
+) -> List[Dataset]:
+    """
+    Partition the dataset using Dirichlet distribution with balanced constraints.
+    """
+    np.random.seed(seed)
+    
+    # Get targets
+    if isinstance(trainset.targets, torch.Tensor):
+        targets = trainset.targets.numpy()
+    else:
+        targets = np.array(trainset.targets)
+    
+    num_classes = len(np.unique(targets))
+    num_samples = len(targets)
+    min_samples_per_partition = int(num_samples * min_size_ratio / num_partitions)
+    
+    print(f"Total samples: {num_samples}")
+    print(f"Minimum samples per partition: {min_samples_per_partition}")
+    
+    # Keep generating distributions until we get one that satisfies our constraints
+    max_attempts = 10
+    for attempt in range(max_attempts):
+        # Generate Dirichlet distribution for each class
+        client_proportions = np.random.dirichlet(alpha=[alpha] * num_partitions, size=num_classes)
+        
+        # Calculate expected samples per partition
+        partition_sizes = np.zeros(num_partitions)
+        for class_id in range(num_classes):
+            class_indices = np.where(targets == class_id)[0]
+            proportions = client_proportions[class_id]
+            num_samples_per_client = (proportions * len(class_indices)).astype(int)
+            partition_sizes += num_samples_per_client
+        
+        # Check if distribution satisfies minimum size constraint
+        if np.all(partition_sizes >= min_samples_per_partition):
+            break
+        
+        print(f"Attempt {attempt + 1}: Regenerating distribution due to size constraint...")
+    
+    print(f"\nFinal Dirichlet distribution shape: {client_proportions.shape}")
+    print(f"Client proportions per class:")
+    for i in range(num_classes):
+        print(f"Class {i}: {client_proportions[i]}")
+    
+    # Initialize partition indices
+    partition_indices = [[] for _ in range(num_partitions)]
+    
+    # Partition data class by class
+    for class_id in range(num_classes):
+        class_indices = np.where(targets == class_id)[0]
+        np.random.shuffle(class_indices)
+        
+        proportions = client_proportions[class_id]
+        num_samples_per_client = (proportions * len(class_indices)).astype(int)
+        
+        # Adjust for rounding errors
+        remaining = len(class_indices) - num_samples_per_client.sum()
+        if remaining > 0:
+            # Add remaining samples to clients with lowest allocation
+            idx = np.argpartition(num_samples_per_client, remaining)[:remaining]
+            num_samples_per_client[idx] += 1
+        
+        # Distribute indices
+        start_idx = 0
+        for client_id, num_samples in enumerate(num_samples_per_client):
+            end_idx = start_idx + num_samples
+            partition_indices[client_id].extend(class_indices[start_idx:end_idx])
+            start_idx = end_idx
+    
+    # Create partitions
+    partitions = []
+    for client_id, indices in enumerate(partition_indices):
+        partition = Subset(trainset, indices)
+        partitions.append(partition)
+        
+        # Print distribution for this partition
+        if isinstance(partition.dataset.targets, torch.Tensor):
+            part_targets = partition.dataset.targets[partition.indices].numpy()
+        else:
+            part_targets = np.array([partition.dataset.targets[j] for j in partition.indices])
+            
+        dist = np.bincount(part_targets, minlength=num_classes)
+        print(f"\nClient {client_id}:")
+        print(f"Samples per class: {dist}")
+        print(f"Total samples: {sum(dist)}")
+        
+        # Calculate and print percentages
+        percentages = dist / sum(dist) * 100
+        print(f"Class distribution: {percentages.round(2)}%")
+    
     return partitions
