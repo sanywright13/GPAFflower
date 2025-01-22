@@ -152,43 +152,36 @@ def create_domain_shifted_loaders(
     trainloaders = []
     valloaders = []
     train_splits, val_splits= der.load_splits()
-    print("Loading existing splits for domain shift data...")
-    for client_id in range(num_clients):
+    print(f"Loading existing splits for domain shift data... {len(train_splits)}")
+    #for client_id in range(num_clients):
+    for client_id , (train_split, val_split) in enumerate(zip(train_splits, val_splits)):
         print(f'== client id for sanaa {client_id}')
         # Apply domain shift to training data
         shifted_trainset=BreastMnistDataset(root_path,prefix='train',transform=transform,client_id=client_id,
             num_clients=num_clients,domain_shifti=domain_shift)
         # Create subsets using saved splits
-        train_subset = Subset(shifted_trainset, train_splits[client_id]['indices'])
+        shifted_trainset = Subset(shifted_trainset, train_split['indices'])
         
-        trainloaders.append(DataLoader(
-            train_subset,
-            batch_size=batch_size,
-            shuffle=True
-        ))
+        print(f' train shape domain shift {len(shifted_trainset)}')
 
         shifted_valset=BreastMnistDataset(root_path,prefix='valid',transform=transform,client_id=client_id,
             num_clients=num_clients,domain_shifti=domain_shift)
-        val_subset = Subset(shifted_valset, val_splits[client_id]['indices'])
-        valloaders.append(DataLoader(
-            val_subset,
-            batch_size=batch_size
-        ))
-        testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
+        shifted_valset = Subset(shifted_valset, val_split['indices'])
 
         #test_subset = Subset(testset, test_splits['indices'])
-        train_indices = train_splits[client_id]['indices']
-        val_indices = val_splits[client_id]['indices']
+        train_indices = train_split['indices']
+        val_indices = val_split['indices']
+        # Create and verify subsets
+          
+      
         print(f"\nClient {client_id} data points:")
         print(f"Last 5 training indices: {train_indices[5:]}")
         print(f"Number of training samples: {len(train_indices)}")
    except Exception as e:
        
-        #print(f"No existing splits found. Creating new splits with domain shift... {e}")
+        print(f"No existing splits found. Creating new splits with domain shift... {e}")
         # Create new splits
-        trainloaders = []
-        valloaders = []
-        
+       
         for client_id in range(num_clients):
             print(f' client id for sanaa {client_id}')
             shifted_trainset = BreastMnistDataset(
@@ -208,28 +201,11 @@ def create_domain_shifted_loaders(
                 num_clients=num_clients,
                 domain_shifti=domain_shift
             )
-            
-            trainloader = DataLoader(
-                shifted_trainset,
-                batch_size=batch_size,
-                shuffle=True
-            )
-            valloader = DataLoader(
-                shifted_valset,
-                batch_size=batch_size
-            )
-            
-            trainloaders.append(trainloader)
-            valloaders.append(valloader)
-           
-            
-       
-        testset=BreastMnistDataset(root_path,prefix='test',transform=transform)
+        testset=BreastMnistDataset(root_path,prefix='test',transform=transform)    
+         
 
-        # Save the splits for future use
-        der.save_splits(trainloaders, valloaders,None)
     
-   return trainloaders, valloaders , testset
+   return shifted_trainset, shifted_valset , testset
 def makeBreastnistdata(root_path, prefix):
   print(f' root path {root_path}')
   data_path=os.path.join(root_path,'dataset')
@@ -245,6 +221,7 @@ def makeBreastnistdata(root_path, prefix):
     val_data=data['test_images']
     val_label=data['test_labels']
     print( f'test data shape {val_data.shape}')
+    return val_data , val_label
   elif prefix=='valid':
     val_data=data['val_images']
     val_label=data['val_labels']
@@ -254,8 +231,8 @@ def makeBreastnistdata(root_path, prefix):
 #then the purpose of this code is split a dataset among a number of clients and choose the way of spliting if it is iid or no iid etc
 class BreastMnistDataset(data.Dataset):
       
-    def __init__(self,root,prefix, transform=None,client_id=0, num_clients=0, domain_shifti=False ):
-      data,labels= makeBreastnistdata(root, prefix='train')
+    def __init__(self,root,prefix='valid', transform=None,client_id=0, num_clients=0, domain_shifti=False ):
+      data,labels= makeBreastnistdata(root, prefix=prefix)
       self.data=data
       self.labels  = labels  
       self.domain_shifti=domain_shifti
@@ -331,9 +308,10 @@ class DataSplitManager:
         self.num_clients = num_clients
         self.batch_size = batch_size
         self.seed = seed
-        
+        print(f' domain shift is {domain_shift}')
         if domain_shift:
           self.splits_dir = os.path.join(os.getcwd(), 'data_shift_splits')
+        
         else:
          self.splits_dir = os.path.join(os.getcwd(), 'data_splits')
         os.makedirs(self.splits_dir, exist_ok=True)
@@ -342,8 +320,7 @@ class DataSplitManager:
         """Check if splits already exist."""
         return (
             os.path.exists(self.get_split_path('train')) and
-            os.path.exists(self.get_split_path('val')) and
-            os.path.exists(self.get_split_path('test'))
+            os.path.exists(self.get_split_path('val')) 
         )
     
     def get_split_path(self, split_type: str):
@@ -384,6 +361,7 @@ class DataSplitManager:
             }
             for loader in valloaders
         ]
+        '''
         if self.testloader:
           test_split = {
             'indices': self._get_indices(testloader.dataset),
@@ -391,7 +369,7 @@ class DataSplitManager:
           }
           torch.save(test_split, self.get_split_path('test'))
 
-        
+        '''
         # Save splits to files
         torch.save(train_splits, self.get_split_path('train'))
         torch.save(val_splits, self.get_split_path('val'))

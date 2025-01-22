@@ -80,7 +80,7 @@ def load_datasets(  # pylint: disable=too-many-arguments
     # Create domain-shifted dataloaders
     if domain_shift==True:
       domain_transform=buid_domain_transform()
-      trainloaders, valloaders, testset = create_domain_shifted_loaders(
+      trainset, valsets, testset = create_domain_shifted_loaders(
          config.dataset_name,
         num_clients,
         batch_size
@@ -88,6 +88,13 @@ def load_datasets(  # pylint: disable=too-many-arguments
         domain_transform,
         domain_shift
       )
+      trainloaders = []
+      valloaders = []
+      for i,trainset in enumerate(trainset):
+        
+        trainloaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True))
+        valloaders.append(DataLoader(valsets[i], batch_size=batch_size))
+    
       testloaders=DataLoader(testset, batch_size=batch_size)
 
     else:
