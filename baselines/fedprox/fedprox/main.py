@@ -15,7 +15,7 @@ from flwr.simulation import run_simulation
 from fedprox import client, server, utils
 from fedprox.client import gen_client_fn , FlowerClient
 from fedprox.dataset import load_datasets
-from fedprox.utils import LabelDistributionVisualizer
+from fedprox.utils import LabelDistributionVisualizer,visualize_class_domain_shift
 import mlflow
 from  mlflow.tracking import MlflowClient
 import time
@@ -39,7 +39,7 @@ import torch
 import numpy as np
 from typing import List
 from torch.utils.data import DataLoader
-strategy="fedavg"
+strategy="gpaf"
  # Create or get experiment
 experiment_name = "fedavg_Fed_FL1"
 experiment = mlflow.get_experiment_by_name(experiment_name)
@@ -213,7 +213,7 @@ def main(cfg: DictConfig) -> None:
    
         
     visualize_intensity_distributions(trainloaders, cfg.num_clients) 
-    # Visualize label distributions
+    visualize_class_domain_shift(trainloaders)    # Visualize label distributions
     visualizer = LabelDistributionVisualizer(
         num_clients=cfg.num_clients,
         num_classes=2  # For binary classification in breast cancer dataset

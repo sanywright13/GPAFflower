@@ -168,3 +168,54 @@ class LabelDistributionVisualizer:
                                                           np.std(distributions[:, j])) ** 3)
         
         return metrics
+
+def visualize_class_domain_shift(trainloaders: List[DataLoader]):
+    plt.style.use('default')
+    fig, axes = plt.subplots(2, 1, figsize=(12, 16))
+    class_names = ['Benign Mass/Lesion', 'Malignant Mass/Lesion']
+    colors = ['blue', 'red', 'green']
+    
+    for class_idx in range(2):
+        for client_id, loader in enumerate(trainloaders):
+            class_images = []
+            image_count = 0  # Count actual images
+            
+            for images, labels in loader:
+                mask = labels == class_idx
+                if mask.any():
+                    class_images.append(images[mask].view(-1))
+                    image_count += mask.sum().item()  # Count images of this class
+            
+            if class_images:
+                class_pixels = torch.cat(class_images).cpu().numpy()
+                sns.kdeplot(
+                    data=class_pixels,
+                    ax=axes[class_idx],
+                    color=colors[client_id],
+                    label=f'Client {client_id} ({image_count} images)',
+                    linewidth=2
+                )
+                
+                mean_val = np.mean(class_pixels)
+                std_val = np.std(class_pixels)
+                median_val = np.median(class_pixels)
+                
+                axes[class_idx].text(
+                    0.02, 0.98 - 0.1 * client_id,
+                    f'Client {client_id}: Mean={mean_val:.4f}, Std={std_val:.4f}, Median={median_val:.4f}',
+                    transform=axes[class_idx].transAxes,
+                    fontsize=8,
+                    verticalalignment='top'
+                )
+        
+        axes[class_idx].set_title(f'Pixel Intensity Distribution for {class_names[class_idx]}')
+        axes[class_idx].set_xlabel('Pixel Value')
+        axes[class_idx].set_ylabel('Density')
+        axes[class_idx].legend()
+        axes[class_idx].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('class_domain_shift.png', bbox_inches='tight', dpi=300)
+    plt.close()
+    
+    return fig

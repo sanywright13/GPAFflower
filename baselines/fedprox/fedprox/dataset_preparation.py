@@ -220,6 +220,25 @@ def create_domain_shifted_loaders(
               client_validsets = random_split(shifted_valset, lengths_valid, torch.Generator().manual_seed(seed))
 
               datasets = random_split(shifted_trainset, lengths, torch.Generator().manual_seed(seed))
+        else:
+
+          #drishlet distribution
+          # Non-IID splitting using Dirichlet distribution
+          alpha=0.5
+          min_size_ratio = 0.1  # Ensures each partition has at least 10% of average size
+          datasets = _dirichlet_split(
+                    shifted_trainset,
+                    num_clients,
+                    alpha=alpha,
+                    min_size_ratio = 0.1,  # Ensures each partition has at least 10% of average size,
+                    seed=seed
+                )
+          print(f'dataset drichlet {datasets[0]}')      
+          partition_size_valid = int(len(shifted_valset) / num_clients)
+          lengths_valid = [partition_size_valid] * num_clients
+          client_validsets = random_split(shifted_valset, lengths_valid, 
+                                              torch.Generator().manual_seed(seed))
+
    testset=BreastMnistDataset(root_path,prefix='test',transform=transform)    
          
 
@@ -418,15 +437,16 @@ def _partition_data(
     num_clients,
     dataset_name,
     transform,
-    iid: Optional[bool] = False,
+    iid: Optional[bool] = True,
     power_law: Optional[bool] = True,
     balance: Optional[bool] = False,
     seed: Optional[int] = 42,
-    domain_shift=False
+    domain_shift=False,
+   
     
 ) -> Tuple[List[Dataset], Dataset]:
     root_path=os.getcwd()
-    iid=False
+    
     if dataset_name=='breastmnist':
       root_path=os.getcwd()
       trainset=BreastMnistDataset(root_path,prefix='train',transform=transform)
