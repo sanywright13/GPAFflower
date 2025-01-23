@@ -380,6 +380,9 @@ class FlowerClient(NumPyClient):
         self.client_id=partition_id
         self.run_id=run_id
         self.mlflow=mlflow
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 
     #update the local model with parameters received from the server
     def set_parameters(self,net, parameters: List[np.ndarray]):
@@ -435,7 +438,14 @@ class FlowerClient(NumPyClient):
         for batch in trainloader:
 
             images, labels = batch
-            labels=labels.squeeze(1)
+            #print(f'labels shape hh {labels.shape}')
+            
+            # Remove any squeeze operation since labels are already 1D
+            if len(labels.shape) == 1:
+              labels = labels.to(self.device)  # Just move to device
+            else:
+              labels=labels.squeeze(1)
+            #print(f'after labels shape hh {labels.shape}')
             #print(labels)
             optimizer.zero_grad()
             outputs = net(images)

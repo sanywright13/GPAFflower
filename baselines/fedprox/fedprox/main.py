@@ -294,7 +294,7 @@ def data_load(cfg: DictConfig):
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=False
+        domain_shift=True
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":

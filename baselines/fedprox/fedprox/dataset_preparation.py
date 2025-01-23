@@ -76,17 +76,18 @@ class SameModalityDomainShift:
     'resolution_factor': 1.0     # No resolution change
 },
             'mid_range': {
-                'noise_level': 0.04,
-                'contrast_range': (0.8, 1.2),
-                'brightness_shift': 0.1,
-                'resolution_factor': 0.9
-            },
-            'older_model': {
-                'noise_level': 0.06,
-                'contrast_range': (0.7, 1.3),
-                'brightness_shift': 0.15,
-                'resolution_factor': 0.8
-            }
+        'noise_level': 0.08,        # Increased from 0.04
+        'contrast_range': (0.6, 1.4), # Wider range
+        'brightness_shift': 0.2,    # Increased from 0.1
+        'resolution_factor': 0.85
+    },
+    'older_model': {
+        'noise_level': 0.12,        # Increased from 0.06
+        'contrast_range': (0.5, 1.5), # Wider range
+        'brightness_shift': 0.3,    # Increased from 0.15
+        'resolution_factor': 0.7
+    }
+    
         }
         
         profiles = list(equipment_profiles.values())
@@ -289,7 +290,6 @@ class BreastMnistDataset(data.Dataset):
           image = self.domain_shift.apply_transform(image)
 
         label = self.labels[idx]
-        
         if self.transform:
           if self.domain_shifti:
            #we already have torch type

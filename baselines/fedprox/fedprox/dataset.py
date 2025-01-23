@@ -76,7 +76,8 @@ def load_datasets(  # pylint: disable=too-many-arguments
     val_ratio: float = 0.1,
     batch_size: int = 13,
     seed: Optional[int] = 42,
-    domain_shift=False
+    domain_shift=False, 
+    iid=True
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
   
     print(f"Dataset partitioning config: {config}")
@@ -92,7 +93,8 @@ def load_datasets(  # pylint: disable=too-many-arguments
         batch_size
         ,
         domain_transform,
-        domain_shift
+        domain_shift,
+        iid
       )
       trainloaders = []
       valloaders = []

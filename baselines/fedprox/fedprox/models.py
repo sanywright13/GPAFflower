@@ -341,7 +341,14 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
         for batch in trainloader:
             images, labels = batch
             images, labels = images.to(DEVICE , dtype=torch.float32), labels.to(DEVICE  , dtype=torch.long)
-            labels=labels.squeeze(1)
+            
+           
+            # Ensure labels have shape (N,1)
+            if len(labels.shape) == 1:
+                labels = labels.unsqueeze(1)
+            else:
+                  labels=labels.squeeze(1)
+            
             real_imgs = images.to(DEVICE)
 
             # Generate global z representation
