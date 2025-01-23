@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/979221990342268542/ec14a0367dfe4217a50d92f50729f80f/artifacts
+end_time: 1737664967939
+entry_point_name: ''
+experiment_id: '979221990342268542'
+lifecycle_stage: active
+run_id: ec14a0367dfe4217a50d92f50729f80f
+run_name: casual-frog-141
+run_uuid: ec14a0367dfe4217a50d92f50729f80f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737663423978
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/741557726314631841/f290aacf252c434798f9674d6e54c044/artifacts
+end_time: 1737662396410
+entry_point_name: ''
+experiment_id: '741557726314631841'
+lifecycle_stage: active
+run_id: f290aacf252c434798f9674d6e54c044
+run_name: wise-newt-819
+run_uuid: f290aacf252c434798f9674d6e54c044
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737657926622
+status: 3
+tags: []
+user_id: unknown

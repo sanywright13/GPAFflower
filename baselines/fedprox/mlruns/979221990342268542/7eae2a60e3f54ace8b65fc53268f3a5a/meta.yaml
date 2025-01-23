@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/979221990342268542/7eae2a60e3f54ace8b65fc53268f3a5a/artifacts
+end_time: 1737666148132
+entry_point_name: ''
+experiment_id: '979221990342268542'
+lifecycle_stage: active
+run_id: 7eae2a60e3f54ace8b65fc53268f3a5a
+run_name: rare-sow-994
+run_uuid: 7eae2a60e3f54ace8b65fc53268f3a5a
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737666148082
+status: 3
+tags: []
+user_id: unknown

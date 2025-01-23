@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/630879923955689250/f0229ff402ec4351b0dad2530b37348a/artifacts
+end_time: 1737657828704
+entry_point_name: ''
+experiment_id: '630879923955689250'
+lifecycle_stage: active
+run_id: f0229ff402ec4351b0dad2530b37348a
+run_name: delightful-sow-84
+run_uuid: f0229ff402ec4351b0dad2530b37348a
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737657828661
+status: 3
+tags: []
+user_id: unknown

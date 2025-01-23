@@ -90,8 +90,6 @@ class GPAFStrategy(FedAvg):
             hidden_dim=self.hidden_dim,
             output_dim=self.output_dim,
         )
-
-        #initiliaze global descriminator 
         # Initialize server discriminator with GRL
         self.server_discriminator = ServerDiscriminator(
             feature_dim=self.latent_dim, 
@@ -265,13 +263,7 @@ save_dir="feature_visualizations_gpaf"
       labels =sample_labels(batch_size, self.label_probs)
       labels_one_hot = F.one_hot(labels, num_classes=label_dim).float()
     
-      #z = self.generator(noise, labels_one_hot).detach().cpu().numpy()
     
-      #save_z_to_file(z, f"z_round_{round}.npy")  # Save z to a file
-      #z_representation_serialized = json.dumps(z.tolist())  # Convert to list and then to JSON string      # Include z representation in config
-      # Get generator parameters
-      #generator_params = self.get_generator_parameters()
-      # Train generator and get parameters
       generator_state = self.generator.state_dict()
         
       # Convert generator parameters to NumPy arrays

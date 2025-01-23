@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/975041036339397437/4e72957ded84480c8a29d3ee24a88c1e/artifacts
+end_time: 1737667824690
+entry_point_name: ''
+experiment_id: '975041036339397437'
+lifecycle_stage: active
+run_id: 4e72957ded84480c8a29d3ee24a88c1e
+run_name: bald-bee-56
+run_uuid: 4e72957ded84480c8a29d3ee24a88c1e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737666265805
+status: 3
+tags: []
+user_id: unknown

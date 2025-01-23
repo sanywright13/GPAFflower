@@ -1,0 +1,6 @@
+artifact_location: file:///content/GPAFflower/baselines/fedprox/mlruns/227200511262924213
+creation_time: 1737668941091
+experiment_id: '227200511262924213'
+last_update_time: 1737668941091
+lifecycle_stage: active
+name: fedavg_Fed_FL16

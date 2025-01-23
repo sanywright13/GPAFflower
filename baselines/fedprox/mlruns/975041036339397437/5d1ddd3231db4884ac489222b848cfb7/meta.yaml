@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/975041036339397437/5d1ddd3231db4884ac489222b848cfb7/artifacts
+end_time: 1737668343493
+entry_point_name: ''
+experiment_id: '975041036339397437'
+lifecycle_stage: active
+run_id: 5d1ddd3231db4884ac489222b848cfb7
+run_name: whimsical-gnat-365
+run_uuid: 5d1ddd3231db4884ac489222b848cfb7
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737666783578
+status: 3
+tags: []
+user_id: unknown

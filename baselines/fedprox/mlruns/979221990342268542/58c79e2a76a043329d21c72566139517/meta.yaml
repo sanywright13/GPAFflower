@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/979221990342268542/58c79e2a76a043329d21c72566139517/artifacts
+end_time: 1737666130123
+entry_point_name: ''
+experiment_id: '979221990342268542'
+lifecycle_stage: active
+run_id: 58c79e2a76a043329d21c72566139517
+run_name: legendary-fly-962
+run_uuid: 58c79e2a76a043329d21c72566139517
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737666129467
+status: 3
+tags: []
+user_id: unknown

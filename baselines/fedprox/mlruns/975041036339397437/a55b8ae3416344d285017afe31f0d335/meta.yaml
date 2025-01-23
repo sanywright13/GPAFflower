@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/975041036339397437/a55b8ae3416344d285017afe31f0d335/artifacts
+end_time: 1737668854388
+entry_point_name: ''
+experiment_id: '975041036339397437'
+lifecycle_stage: active
+run_id: a55b8ae3416344d285017afe31f0d335
+run_name: gifted-lark-429
+run_uuid: a55b8ae3416344d285017afe31f0d335
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737666265245
+status: 3
+tags: []
+user_id: unknown

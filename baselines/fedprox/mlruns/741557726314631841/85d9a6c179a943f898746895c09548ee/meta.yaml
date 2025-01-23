@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/741557726314631841/85d9a6c179a943f898746895c09548ee/artifacts
+end_time: 1737662887405
+entry_point_name: ''
+experiment_id: '741557726314631841'
+lifecycle_stage: active
+run_id: 85d9a6c179a943f898746895c09548ee
+run_name: secretive-steed-146
+run_uuid: 85d9a6c179a943f898746895c09548ee
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737658432050
+status: 3
+tags: []
+user_id: unknown

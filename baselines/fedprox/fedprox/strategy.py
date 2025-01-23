@@ -11,8 +11,10 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
+import base64
+import pickle
 from flwr.server.client_manager import ClientManager
-
+from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 
@@ -39,6 +41,13 @@ class FedAVGWithEval(FedAvg):
         )
      self.min_evaluate_clients=min_evaluate_clients
      self.min_available_clients=min_available_clients
+     self.best_avg_accuracy=0.0
+     self.feature_visualizer =StructuredFeatureVisualizer(
+        num_clients=3,  # total number of clients
+        num_classes=2,           # number of classes in your dataset
+
+save_dir="feature_visualizations"
+          )
     def evaluate(
         self, server_round: int, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
@@ -77,8 +86,7 @@ class FedAVGWithEval(FedAvg):
             return None, {}
         accuracies = {}
      
-        import base64
-        import pickle
+        
         # Extract all accuracies from evaluation
 
         accuracies = {}
@@ -87,10 +95,29 @@ class FedAVGWithEval(FedAvg):
 
             accuracy = eval_res.metrics.get("accuracy", 0.0)
             accuracies[f"client_{client_id}"] = accuracy
+            metrics = eval_res.metrics
+            # Get features and labels if available
+            if "features" in metrics and "labels" in metrics:
+              
+              features_np = pickle.loads(base64.b64decode(metrics.get("features").encode('utf-8')))
+              labels_np = pickle.loads(base64.b64decode(metrics.get("labels").encode('utf-8')))
+              self.current_features[client_id] = features_np
+              self.current_labels[client_id] = labels_np
+            
             
         # Calculate average accuracy
         avg_accuracy = sum(accuracies.values()) / len(accuracies)
-       
+        # Only visualize if we have all the data and accuracy improved
+        if avg_accuracy > self.best_avg_accuracy:
+          print(f'==visualization===')
+          self.best_avg_accuracy = avg_accuracy
+          self.feature_visualizer.visualize_all_clients_by_class(
+            features_dict=self.current_features,
+            labels_dict=self.current_labels,
+            accuracies=accuracies,
+            epoch=server_round,
+            stage="validation"
+          )
         return avg_accuracy, {"accuracy": avg_accuracy}
 
 

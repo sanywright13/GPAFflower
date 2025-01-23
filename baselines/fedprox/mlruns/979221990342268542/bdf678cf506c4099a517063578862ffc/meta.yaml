@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/979221990342268542/bdf678cf506c4099a517063578862ffc/artifacts
+end_time: 1737666162980
+entry_point_name: ''
+experiment_id: '979221990342268542'
+lifecycle_stage: active
+run_id: bdf678cf506c4099a517063578862ffc
+run_name: sneaky-wasp-990
+run_uuid: bdf678cf506c4099a517063578862ffc
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737666162931
+status: 3
+tags: []
+user_id: unknown

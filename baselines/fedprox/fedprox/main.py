@@ -1,4 +1,4 @@
-"""Runs CNN federated learning for MNIST dataset."""
+7"""Runs CNN federated learning for MNIST dataset."""
 
 from typing import Dict, Union,Tuple
 import mlflow
@@ -39,9 +39,9 @@ import torch
 import numpy as np
 from typing import List
 from torch.utils.data import DataLoader
-strategy="gpaf"
- # Create or get experiment
-experiment_name = "fedavg_Fed_FL1"
+strategy="fedavg"
+# Create or get experiment
+experiment_name = "fedavg_Fed_FL17"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -185,7 +185,7 @@ def get_server_fn(mlflow=None):
       )
 
     # Configure the server for 5 rounds of training
-    config = ServerConfig(num_rounds=2)
+    config = ServerConfig(num_rounds=10)
     return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 
@@ -294,7 +294,7 @@ def data_load(cfg: DictConfig):
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=True
+        domain_shift=False
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":
