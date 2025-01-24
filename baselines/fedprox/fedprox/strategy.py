@@ -86,7 +86,8 @@ save_dir="feature_visualizations"
             return None, {}
         accuracies = {}
      
-        
+        self.current_features = {}
+        self.current_labels = {}
         # Extract all accuracies from evaluation
 
         accuracies = {}

@@ -1,4 +1,3 @@
-7"""Runs CNN federated learning for MNIST dataset."""
 
 from typing import Dict, Union,Tuple
 import mlflow
@@ -41,7 +40,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="fedavg"
 # Create or get experiment
-experiment_name = "fedavg_Fed_FL17"
+experiment_name = "fedavg_Fed_FL18"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/955434420709837294/bd300863bb634518a1624c052e47a945/artifacts
+end_time: 1737719335993
+entry_point_name: ''
+experiment_id: '955434420709837294'
+lifecycle_stage: active
+run_id: bd300863bb634518a1624c052e47a945
+run_name: thundering-bass-517
+run_uuid: bd300863bb634518a1624c052e47a945
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1737719092240
+status: 3
+tags: []
+user_id: unknown
