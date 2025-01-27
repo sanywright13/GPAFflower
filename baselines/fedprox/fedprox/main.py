@@ -40,7 +40,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="fedavg"
 # Create or get experiment
-experiment_name = "fedavg_Fed_FL18"
+experiment_name = "fedavg_Fed_FL25"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -293,7 +293,7 @@ def data_load(cfg: DictConfig):
         config=cfg.dataset_config,
         num_clients=cfg.num_clients,
         batch_size=cfg.batch_size,
-        domain_shift=False
+        domain_shift=True
     )
   return trainloaders, valloaders, testloader   
 if __name__ == "__main__":
