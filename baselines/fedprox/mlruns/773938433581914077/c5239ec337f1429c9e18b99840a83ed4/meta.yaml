@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/c5239ec337f1429c9e18b99840a83ed4/artifacts
+end_time: 1738091195600
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: c5239ec337f1429c9e18b99840a83ed4
+run_name: rumbling-goat-144
+run_uuid: c5239ec337f1429c9e18b99840a83ed4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091195574
+status: 4
+tags: []
+user_id: unknown

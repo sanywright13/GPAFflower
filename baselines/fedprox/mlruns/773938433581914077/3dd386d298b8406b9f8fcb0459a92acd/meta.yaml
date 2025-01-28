@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/3dd386d298b8406b9f8fcb0459a92acd/artifacts
+end_time: 1738091370031
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 3dd386d298b8406b9f8fcb0459a92acd
+run_name: gentle-squid-333
+run_uuid: 3dd386d298b8406b9f8fcb0459a92acd
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091369780
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/2bd195d1a3f647be87434d408567cc89/artifacts
+end_time: 1738091200957
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 2bd195d1a3f647be87434d408567cc89
+run_name: redolent-smelt-587
+run_uuid: 2bd195d1a3f647be87434d408567cc89
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091200917
+status: 4
+tags: []
+user_id: unknown

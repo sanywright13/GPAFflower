@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/8508f89e27f1426cabf97dc9d1c04d05/artifacts
+end_time: 1738091191249
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 8508f89e27f1426cabf97dc9d1c04d05
+run_name: skillful-grouse-434
+run_uuid: 8508f89e27f1426cabf97dc9d1c04d05
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091191203
+status: 4
+tags: []
+user_id: unknown

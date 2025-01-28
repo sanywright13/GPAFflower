@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/681235731538747277/0906b3ee32744b108385ebeaf5a4e448/artifacts
+end_time: 1738097337907
+entry_point_name: ''
+experiment_id: '681235731538747277'
+lifecycle_stage: active
+run_id: 0906b3ee32744b108385ebeaf5a4e448
+run_name: agreeable-rook-268
+run_uuid: 0906b3ee32744b108385ebeaf5a4e448
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738097337869
+status: 3
+tags: []
+user_id: unknown

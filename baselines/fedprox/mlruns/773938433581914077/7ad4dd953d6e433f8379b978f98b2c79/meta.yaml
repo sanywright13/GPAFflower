@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/7ad4dd953d6e433f8379b978f98b2c79/artifacts
+end_time: 1738091189725
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 7ad4dd953d6e433f8379b978f98b2c79
+run_name: treasured-moose-130
+run_uuid: 7ad4dd953d6e433f8379b978f98b2c79
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091189697
+status: 4
+tags: []
+user_id: unknown

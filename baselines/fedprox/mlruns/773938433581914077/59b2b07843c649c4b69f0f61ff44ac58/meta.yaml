@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/59b2b07843c649c4b69f0f61ff44ac58/artifacts
+end_time: 1738091189609
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 59b2b07843c649c4b69f0f61ff44ac58
+run_name: mercurial-asp-222
+run_uuid: 59b2b07843c649c4b69f0f61ff44ac58
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091189579
+status: 4
+tags: []
+user_id: unknown

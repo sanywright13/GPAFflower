@@ -15,7 +15,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 import json
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import Encoder, Classifier,test,test_gpaf ,StochasticGenerator,reparameterize,sample_labels,generate_feature_representation,ServerDiscriminator
+from fedprox.models import Encoder, Classifier,test,test_gpaf ,GlobalGenerator,reparameterize,sample_labels,generate_feature_representation,ServerDiscriminator
 
 from flwr.server.client_proxy import ClientProxy
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
@@ -84,13 +84,22 @@ class GPAFStrategy(FedAvg):
         self.latent_dim = 64
         self.hidden_dim = 256  # Define hidden_dim
         self.output_dim = 64   # Define output_dim
-        self.generator = StochasticGenerator(
-            noise_dim=self.latent_dim,
+        #self.noise_dim = self.latent_dim - self.num_classes  # 192 - 2 = 190
+        self.noise_dim=64
+        # Initialize the new generator
+        self.generator = GlobalGenerator(
+            noise_dim=self.noise_dim ,
             label_dim=self.num_classes,
             hidden_dim=self.hidden_dim,
-            output_dim=self.output_dim,
-        )
+            output_dim=self.output_dim
+        ).to(self.device)
         # Initialize server discriminator with GRL
+        
+        # Save generator state initialization
+        self.generator_state = {
+            k: v.cpu().numpy() 
+            for k, v in self.generator.state_dict().items()
+        }
         self.server_discriminator = ServerDiscriminator(
             feature_dim=self.latent_dim, 
             num_domains=self.num_classes
@@ -297,7 +306,21 @@ save_dir="feature_visualizations_gpaf"
             fit_ins.append((client, flwr.common.FitIns(parameters, config)))
          
       return fit_ins
-
+     def compute_domain_gradients(self, features):
+        """Compute gradients for domain adaptation"""
+        features = torch.tensor(features, requires_grad=True).to(self.device)
+        
+        # Forward pass through discriminator
+        log_probs = self.server_discriminator(features)
+        
+        # Compute domain loss (maximize entropy)
+        probs = torch.exp(log_probs)
+        entropy = -(probs * log_probs).sum(dim=1).mean()
+        loss = -entropy  # Negative because we want to maximize entropy
+        
+        # Compute gradients
+        loss.backward()
+        return features.grad.cpu().numpy()
     def aggregate_fit(
         self,
         server_round: int,
@@ -391,20 +414,52 @@ save_dir="feature_visualizations_gpaf"
         all_features = torch.cat(features_list, dim=0)
         all_domain_labels = torch.tensor(domain_labels, dtype=torch.long, device=self.device)        
         # Multiple training iterations for discriminator
-        for _ in range(5):
-            self.discriminator_optimizer.zero_grad()
-            
-            # Forward pass through discriminator (includes GRL)
-            domain_predictions = self.server_discriminator(all_features)
-            
-            # Compute discriminator loss
-            d_loss = F.cross_entropy(domain_predictions, all_domain_labels)
-            
-            # Update discriminator
-            d_loss.backward()
-            self.discriminator_optimizer.step()
-
-
+        # Convert domain labels to one-hot encoding
+        domain_one_hot = F.one_hot(all_domain_labels, num_classes=len(results)).float()
+        
+        # Train discriminator first
+        for _ in range(10):
+          self.discriminator_optimizer.zero_grad()
+        
+          # Forward pass through discriminator to get log probabilities
+          log_probs = self.server_discriminator(all_features)
+        
+          # Compute domain classification loss: sum(d_j^i * log(D_s(F(X))))
+          d_loss = -(domain_one_hot * log_probs).sum() / all_features.size(0)
+        
+          # Update discriminator
+          d_loss.backward()
+          self.discriminator_optimizer.step()
+          print(f' discriminator loss {d_loss}')
+    
+        # Now compute gradients for each client using the trained discriminator
+        client_gradients = {}
+        for client_id, client_features in client_features_dict.items():
+          # Detach features and create new computation graph
+          client_features = client_features.detach().requires_grad_(True)
+        
+          # Forward pass through trained discriminator
+          log_probs = self.server_discriminator(client_features)
+        
+          # Compute loss for this client's domain
+          client_domain_idx = next(idx for idx, (proxy, _) in enumerate(results) if proxy.cid == client_id)
+          domain_target = torch.full((client_features.size(0),), client_domain_idx, device=self.device, dtype=torch.long)
+          domain_loss = F.nll_loss(log_probs, domain_target)
+        
+          # Compute gradients
+          domain_loss.backward()
+          client_gradients[client_id] = client_features.grad.cpu().numpy()
+    
+    # Rest of your aggregation code...
+    
+    # Prepare config with domain gradients
+    config = {
+        "round": server_round,
+        "domain_gradients": {
+            cid: gradients.tolist() 
+            for cid, gradients in client_gradients.items()
+        }
+    }
         if not encoder_params_list or not classifier_params_list:
             print("No valid parameters to aggregate")
             return None, {}
@@ -432,13 +487,17 @@ save_dir="feature_visualizations_gpaf"
         # Prepare config for next round
         config = {
             "server_round": server_round,
-            "discriminator_state": self.server_discriminator.state_dict()
+              "domain_gradients": {
+                cid: gradients.tolist() 
+                for cid, gradients in client_gradients.items()
+            }
+          #  "discriminator_state": self.server_discriminator.state_dict()
         }
         # Clear memory
         del features_list
         del all_features
         del all_domain_labels
-        del domain_predictions
+       
         
         return ndarrays_to_parameters(aggregated_params),config
         

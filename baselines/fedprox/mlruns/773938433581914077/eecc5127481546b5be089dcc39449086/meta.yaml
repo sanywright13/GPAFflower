@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/eecc5127481546b5be089dcc39449086/artifacts
+end_time: 1738095630082
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: eecc5127481546b5be089dcc39449086
+run_name: sneaky-quail-735
+run_uuid: eecc5127481546b5be089dcc39449086
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738095582088
+status: 3
+tags: []
+user_id: unknown

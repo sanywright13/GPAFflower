@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/e40518ec47ad40f09b4d7d81a0b8deb0/artifacts
+end_time: 1738091195909
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: e40518ec47ad40f09b4d7d81a0b8deb0
+run_name: handsome-hound-367
+run_uuid: e40518ec47ad40f09b4d7d81a0b8deb0
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091195881
+status: 4
+tags: []
+user_id: unknown

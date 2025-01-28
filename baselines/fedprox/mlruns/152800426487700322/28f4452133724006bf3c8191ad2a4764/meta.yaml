@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/152800426487700322/28f4452133724006bf3c8191ad2a4764/artifacts
+end_time: 1738098004717
+entry_point_name: ''
+experiment_id: '152800426487700322'
+lifecycle_stage: active
+run_id: 28f4452133724006bf3c8191ad2a4764
+run_name: clean-goat-406
+run_uuid: 28f4452133724006bf3c8191ad2a4764
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738097579614
+status: 3
+tags: []
+user_id: unknown

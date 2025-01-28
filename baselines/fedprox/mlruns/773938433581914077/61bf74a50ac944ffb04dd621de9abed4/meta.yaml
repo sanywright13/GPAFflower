@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/61bf74a50ac944ffb04dd621de9abed4/artifacts
+end_time: 1738091369667
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 61bf74a50ac944ffb04dd621de9abed4
+run_name: resilient-shrew-755
+run_uuid: 61bf74a50ac944ffb04dd621de9abed4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091369398
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/f75620789fca4dba9ad29b158648a98c/artifacts
+end_time: 1738095624556
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: f75620789fca4dba9ad29b158648a98c
+run_name: upbeat-goose-765
+run_uuid: f75620789fca4dba9ad29b158648a98c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738095624399
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/c435221dd7064b8fbfcf12449ae1434d/artifacts
+end_time: 1738091190077
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: c435221dd7064b8fbfcf12449ae1434d
+run_name: salty-snipe-423
+run_uuid: c435221dd7064b8fbfcf12449ae1434d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091190049
+status: 4
+tags: []
+user_id: unknown

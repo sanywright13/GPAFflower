@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/c2bfd67a8ebc496482b81a796afa505f/artifacts
+end_time: 1738091193336
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: c2bfd67a8ebc496482b81a796afa505f
+run_name: serious-robin-891
+run_uuid: c2bfd67a8ebc496482b81a796afa505f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091193289
+status: 4
+tags: []
+user_id: unknown

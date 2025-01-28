@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/e66e1e5a332845c1a4a19dca05e731aa/artifacts
+end_time: 1738091198891
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: e66e1e5a332845c1a4a19dca05e731aa
+run_name: rogue-flea-754
+run_uuid: e66e1e5a332845c1a4a19dca05e731aa
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091198864
+status: 4
+tags: []
+user_id: unknown

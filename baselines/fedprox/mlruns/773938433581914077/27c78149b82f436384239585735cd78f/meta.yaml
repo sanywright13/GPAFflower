@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/27c78149b82f436384239585735cd78f/artifacts
+end_time: 1738091191766
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 27c78149b82f436384239585735cd78f
+run_name: serious-chimp-998
+run_uuid: 27c78149b82f436384239585735cd78f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091191725
+status: 4
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/1c4aa8c24ad2478eba54e9696e4bb904/artifacts
+end_time: 1738095307016
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 1c4aa8c24ad2478eba54e9696e4bb904
+run_name: nosy-croc-863
+run_uuid: 1c4aa8c24ad2478eba54e9696e4bb904
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738095306946
+status: 3
+tags: []
+user_id: unknown

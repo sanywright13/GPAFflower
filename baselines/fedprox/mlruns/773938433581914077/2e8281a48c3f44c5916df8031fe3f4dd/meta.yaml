@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/2e8281a48c3f44c5916df8031fe3f4dd/artifacts
+end_time: 1738091192969
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 2e8281a48c3f44c5916df8031fe3f4dd
+run_name: mercurial-ox-392
+run_uuid: 2e8281a48c3f44c5916df8031fe3f4dd
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091192913
+status: 4
+tags: []
+user_id: unknown

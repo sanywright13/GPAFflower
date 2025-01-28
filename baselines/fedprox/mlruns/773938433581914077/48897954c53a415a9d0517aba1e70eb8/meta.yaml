@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/48897954c53a415a9d0517aba1e70eb8/artifacts
+end_time: 1738091195034
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 48897954c53a415a9d0517aba1e70eb8
+run_name: upset-shark-724
+run_uuid: 48897954c53a415a9d0517aba1e70eb8
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091194985
+status: 4
+tags: []
+user_id: unknown

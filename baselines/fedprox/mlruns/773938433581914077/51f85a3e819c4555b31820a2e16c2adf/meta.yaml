@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/51f85a3e819c4555b31820a2e16c2adf/artifacts
+end_time: 1738091199206
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 51f85a3e819c4555b31820a2e16c2adf
+run_name: grandiose-bee-99
+run_uuid: 51f85a3e819c4555b31820a2e16c2adf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091199175
+status: 4
+tags: []
+user_id: unknown

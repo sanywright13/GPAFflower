@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/b97ed1b44b8d49fbb22b77dac9a05577/artifacts
+end_time: 1738091190002
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: b97ed1b44b8d49fbb22b77dac9a05577
+run_name: polite-stoat-413
+run_uuid: b97ed1b44b8d49fbb22b77dac9a05577
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091189972
+status: 4
+tags: []
+user_id: unknown

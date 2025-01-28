@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/d8144aca81e44ab39ca36f701e8d09c8/artifacts
+end_time: 1738091197075
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: d8144aca81e44ab39ca36f701e8d09c8
+run_name: youthful-bat-201
+run_uuid: d8144aca81e44ab39ca36f701e8d09c8
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091197020
+status: 4
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/06844ae18e014e3fa203699d6a795954/artifacts
+end_time: 1738091194461
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 06844ae18e014e3fa203699d6a795954
+run_name: righteous-turtle-28
+run_uuid: 06844ae18e014e3fa203699d6a795954
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091194413
+status: 4
+tags: []
+user_id: unknown

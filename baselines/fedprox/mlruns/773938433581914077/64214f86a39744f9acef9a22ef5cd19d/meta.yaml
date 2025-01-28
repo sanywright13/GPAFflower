@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/64214f86a39744f9acef9a22ef5cd19d/artifacts
+end_time: 1738096296319
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: 64214f86a39744f9acef9a22ef5cd19d
+run_name: bedecked-fly-336
+run_uuid: 64214f86a39744f9acef9a22ef5cd19d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738095849661
+status: 3
+tags: []
+user_id: unknown

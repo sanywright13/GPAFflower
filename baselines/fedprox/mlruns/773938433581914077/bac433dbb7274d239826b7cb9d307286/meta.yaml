@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/bac433dbb7274d239826b7cb9d307286/artifacts
+end_time: 1738091191085
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: bac433dbb7274d239826b7cb9d307286
+run_name: delicate-smelt-467
+run_uuid: bac433dbb7274d239826b7cb9d307286
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091191022
+status: 4
+tags: []
+user_id: unknown

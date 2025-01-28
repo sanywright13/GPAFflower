@@ -119,37 +119,76 @@ class GradientReversalLayer(nn.Module):
     def forward(self, x):
         return GradientReversalFunction.apply(x, self.lambda_)
         
-class StochasticGenerator(nn.Module):
+class GlobalGenerator(nn.Module):
     def __init__(self, noise_dim, label_dim, hidden_dim, output_dim):
-         super().__init__()
-         self.fc1 = nn.Linear(noise_dim + label_dim, hidden_dim)
-         self.fc2 = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, noise, label):
-        x = torch.cat((noise, label), dim=1)
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        super().__init__()
+        self.noise_dim = noise_dim
+        self.label_dim = label_dim
+        
+        # Initial projection for noise
+        self.noise_proj = nn.Sequential(
+            nn.Linear(noise_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.LeakyReLU(0.2)
+        )
+        
+        # Initial projection for labels
+        self.label_proj = nn.Sequential(
+            nn.Linear(label_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.LeakyReLU(0.2)
+        )
+        
+        # Mu and logvar projections
+        self.mu_proj = nn.Linear(2 * hidden_dim, output_dim)
+        self.logvar_proj = nn.Linear(2 * hidden_dim, output_dim)
+        
+        # Output projection
+        self.output_proj = nn.Linear(output_dim, output_dim)
+        
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        z = mu + eps * std
+        return z
+    
+    def forward(self, noise, labels, return_distribution=False):
+        # Project noise and labels to same dimension
+        noise_feat = self.noise_proj(noise)  # [batch_size, hidden_dim]
+        label_feat = self.label_proj(labels)  # [batch_size, hidden_dim]
+        
+        # Combine features
+        combined = torch.cat([noise_feat, label_feat], dim=1)  # [batch_size, 2*hidden_dim]
+        
+        # Generate mu and logvar
+        mu = self.mu_proj(combined)
+        logvar = self.logvar_proj(combined)
+        
+        # Apply reparameterization trick
+        z = self.reparameterize(mu, logvar)
+        
+        # Final output projection
+        features = self.output_proj(z)
+        
+        if return_distribution:
+            return features, mu, logvar
+        return features
 
 class ServerDiscriminator(nn.Module):
     def __init__(self, feature_dim, num_domains):
         super().__init__()
-        # Gradient Reversal Layer
-        self.grl = GradientReversalLayer()
-        # Discriminator architecture
+        # Remove GRL and use standard discriminator architecture
         self.discriminator = nn.Sequential(
             nn.Linear(feature_dim, 512),
             nn.LeakyReLU(0.2),
             nn.Dropout(0.3),
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2),
-            nn.Linear(256, num_domains)
+            nn.Linear(256, num_domains),
+            nn.LogSoftmax(dim=1)  # Use LogSoftmax for numerical stability
         )
 
-    def forward(self, x, lambda_=1.0):
-        self.grl.lambda_ = lambda_
-        # Apply GRL before discrimination
-        x = self.grl(x)
+    def forward(self, x):
         return self.discriminator(x)
 
 def reparameterize(mu, logvar):
@@ -323,7 +362,7 @@ classifier,discriminator , trainloader, device,client_id,
   
 #we must add a classifier that classifier into a binary categories
 #send back the classifier parameter to the server
-def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,server_discriminator=None,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,server_discriminator=None,domain_gradients=None,verbose=False):
     """Train the network on the training set."""
     #print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
@@ -338,7 +377,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
     for epoch in range(epochs):
         print('==start local training ==')
         correct, total, epoch_loss = 0, 0, 0.0
-        for batch in trainloader:
+        for batch_idx, batch in enumerate(trainloader):
             images, labels = batch
             images, labels = images.to(DEVICE , dtype=torch.float32), labels.to(DEVICE  , dtype=torch.long)
             
@@ -403,19 +442,28 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             
             # Get fresh features for encoder training
             local_features = encoder(images)
-            
+            local_features.requires_grad_(True)
             g_loss = criterion(discriminator(local_features), real_labels)
 
             #local minimizing federated adverserial loss
-
+            # If we have domain gradients, apply them
+            if domain_gradients is not None:
+                batch_gradients = domain_gradients[batch_idx] if isinstance(domain_gradients, list) else domain_gradients
+                batch_gradients = torch.tensor(batch_gradients, device=DEVICE)
+                
+                # Reshape gradients to match features shape if necessary
+                if batch_gradients.shape != local_features.shape:
+                    batch_gradients = batch_gradients.reshape(local_features.shape)
+                
+                # Scale gradients based on progress coefficient
+                scaled_gradients =  batch_gradients
+                
+                # Apply domain gradients
+                local_features.backward(-scaled_gradients, retain_graph=True)
+            
             # Federated adversarial loss - make features domain invariant
-            # Server adversarial loss
-            if server_discriminator is not None:
-              domain_preds = server_discriminator(local_features)
-              fed_adv_loss = F.cross_entropy(domain_preds, labels)
-              encoder_loss = g_loss + fed_adv_loss
-            else:
-              encoder_loss = g_loss
+           
+            encoder_loss = g_loss
         
             encoder_loss.backward()
             optimizer_E.step()

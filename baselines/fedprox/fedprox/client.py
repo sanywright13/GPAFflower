@@ -28,7 +28,7 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
-from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,StochasticGenerator,GradientReversalLayer,ServerDiscriminator
+from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,ServerDiscriminator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 class FederatedClient(fl.client.NumPyClient):
@@ -52,7 +52,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.encoder.to(self.device)
         self.classifier.to(self.device)
         self.discriminator.to(self.device)
-        self.global_generator = StochasticGenerator(noise_dim=64, label_dim=2, hidden_dim=256  , output_dim=64)
+        self.global_generator = GlobalGenerator(noise_dim=62, label_dim=2, hidden_dim=256  , output_dim=64)
         # Initialize server discriminator with GRL
         self.server_discriminator = ServerDiscriminator(
             feature_dim=64, 

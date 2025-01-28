@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/773938433581914077/f2ce52eb5c6d411ea584f3049686a004/artifacts
+end_time: 1738091199277
+entry_point_name: ''
+experiment_id: '773938433581914077'
+lifecycle_stage: active
+run_id: f2ce52eb5c6d411ea584f3049686a004
+run_name: angry-moose-145
+run_uuid: f2ce52eb5c6d411ea584f3049686a004
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738091199247
+status: 4
+tags: []
+user_id: unknown
