@@ -441,12 +441,13 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             #discriminator(local_features)
             
             # Get fresh features for encoder training
-            local_features = encoder(images)
+            #local_features = encoder(images)
             local_features.requires_grad_(True)
             g_loss = criterion(discriminator(local_features), real_labels)
 
             #local minimizing federated adverserial loss
             # If we have domain gradients, apply them
+           
             if domain_gradients is not None and epoch==0:
                 print(f' gradients avalaible')
                 batch_gradients = domain_gradients[batch_idx] if isinstance(domain_gradients, list) else domain_gradients
@@ -463,7 +464,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
                 local_features.backward(-scaled_gradients, retain_graph=True)
             
             # Federated adversarial loss - make features domain invariant
-           
+          
             encoder_loss = g_loss
         
             encoder_loss.backward()
@@ -476,7 +477,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             # Train Classifier
             # -----------------
             optimizer_C.zero_grad()
-
+            local_features = encoder(images)
             # Classification loss
             logits = classifier(local_features.detach())  # Detach to avoid affecting encoder
             cls_loss = criterion_cls(logits, labels)

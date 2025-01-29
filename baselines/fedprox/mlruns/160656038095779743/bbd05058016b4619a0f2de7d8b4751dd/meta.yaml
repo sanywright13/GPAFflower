@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/bbd05058016b4619a0f2de7d8b4751dd/artifacts
+end_time: 1738182857769
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: bbd05058016b4619a0f2de7d8b4751dd
+run_name: rebellious-robin-13
+run_uuid: bbd05058016b4619a0f2de7d8b4751dd
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738182378676
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/0c009f6bac6644858810728d9dbd516f/artifacts
+end_time: 1738180450536
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 0c009f6bac6644858810728d9dbd516f
+run_name: capable-flea-100
+run_uuid: 0c009f6bac6644858810728d9dbd516f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738179950510
+status: 3
+tags: []
+user_id: unknown
