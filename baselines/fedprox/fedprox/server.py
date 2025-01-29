@@ -420,7 +420,7 @@ save_dir="feature_visualizations_gpaf"
         domain_one_hot = F.one_hot(all_domain_labels, num_classes=len(results)).float()
         
         # Train discriminator first
-        for _ in range(10):
+        for _ in range(20):
           self.discriminator_optimizer.zero_grad()
         
           # Forward pass through discriminator to get log probabilities
@@ -527,7 +527,7 @@ save_dir="feature_visualizations_gpaf"
    
     def _create_client_model(self, classifier_params: NDArrays) -> nn.Module: 
         # Initialize the classifier
-        classifier = Classifier(latent_dim=64, num_classes=2).to(self.device)
+        classifier = Classifier(latent_dim=192, num_classes=2).to(self.device)
         '''
         # Debug print the original model structure
         print("Original classifier parameter structure:")

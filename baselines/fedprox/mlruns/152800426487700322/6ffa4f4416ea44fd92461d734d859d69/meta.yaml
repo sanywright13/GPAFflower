@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/152800426487700322/6ffa4f4416ea44fd92461d734d859d69/artifacts
+end_time: 1738146150450
+entry_point_name: ''
+experiment_id: '152800426487700322'
+lifecycle_stage: active
+run_id: 6ffa4f4416ea44fd92461d734d859d69
+run_name: selective-boar-991
+run_uuid: 6ffa4f4416ea44fd92461d734d859d69
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738146019032
+status: 3
+tags: []
+user_id: unknown
