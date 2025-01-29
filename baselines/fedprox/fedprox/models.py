@@ -447,7 +447,8 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
 
             #local minimizing federated adverserial loss
             # If we have domain gradients, apply them
-            if domain_gradients is not None:
+            if domain_gradients is not None and epoch==0:
+                print(f' gradients avalaible')
                 batch_gradients = domain_gradients[batch_idx] if isinstance(domain_gradients, list) else domain_gradients
                 batch_gradients = torch.tensor(batch_gradients, device=DEVICE)
                 

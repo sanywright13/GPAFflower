@@ -527,7 +527,7 @@ save_dir="feature_visualizations_gpaf"
    
     def _create_client_model(self, classifier_params: NDArrays) -> nn.Module: 
         # Initialize the classifier
-        classifier = Classifier(latent_dim=192, num_classes=2).to(self.device)
+        classifier = Classifier(latent_dim=self.latent_dim, num_classes=2).to(self.device)
         '''
         # Debug print the original model structure
         print("Original classifier parameter structure:")

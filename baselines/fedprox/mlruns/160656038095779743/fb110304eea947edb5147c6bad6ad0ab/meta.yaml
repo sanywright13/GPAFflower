@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/fb110304eea947edb5147c6bad6ad0ab/artifacts
+end_time: 1738152751528
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: fb110304eea947edb5147c6bad6ad0ab
+run_name: inquisitive-flea-925
+run_uuid: fb110304eea947edb5147c6bad6ad0ab
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738152247142
+status: 3
+tags: []
+user_id: unknown

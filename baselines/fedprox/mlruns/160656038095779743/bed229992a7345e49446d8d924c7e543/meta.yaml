@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/bed229992a7345e49446d8d924c7e543/artifacts
+end_time: 1738152751744
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: bed229992a7345e49446d8d924c7e543
+run_name: victorious-croc-226
+run_uuid: bed229992a7345e49446d8d924c7e543
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738152296928
+status: 3
+tags: []
+user_id: unknown

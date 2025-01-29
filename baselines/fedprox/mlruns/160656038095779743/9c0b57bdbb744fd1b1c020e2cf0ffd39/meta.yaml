@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/9c0b57bdbb744fd1b1c020e2cf0ffd39/artifacts
+end_time: 1738152751982
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 9c0b57bdbb744fd1b1c020e2cf0ffd39
+run_name: gregarious-mare-107
+run_uuid: 9c0b57bdbb744fd1b1c020e2cf0ffd39
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738152270452
+status: 3
+tags: []
+user_id: unknown

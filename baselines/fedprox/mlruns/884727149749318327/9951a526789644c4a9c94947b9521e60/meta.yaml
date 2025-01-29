@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/884727149749318327/9951a526789644c4a9c94947b9521e60/artifacts
+end_time: 1738151354420
+entry_point_name: ''
+experiment_id: '884727149749318327'
+lifecycle_stage: active
+run_id: 9951a526789644c4a9c94947b9521e60
+run_name: stately-hen-139
+run_uuid: 9951a526789644c4a9c94947b9521e60
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738150871604
+status: 3
+tags: []
+user_id: unknown
