@@ -306,7 +306,7 @@ save_dir="feature_visualizations_gpaf"
             fit_ins.append((client, flwr.common.FitIns(parameters, config)))
          
       return fit_ins
-     def compute_domain_gradients(self, features):
+    def compute_domain_gradients(self, features):
         """Compute gradients for domain adaptation"""
         features = torch.tensor(features, requires_grad=True).to(self.device)
         
@@ -346,6 +346,7 @@ save_dir="feature_visualizations_gpaf"
         domain_labels = []
         # Aggregate label counts
         accuracy_metrics = {}
+        client_features_dict = {}  # Store features per client for later gradient computation
         for domain_idx, (client_proxy, fit_res) in enumerate(results):
                 # Parse label distribution from metrics
                 label_distribution_str = fit_res.metrics.get("label_distribution", "{}")
@@ -359,7 +360,8 @@ save_dir="feature_visualizations_gpaf"
                 features_list.append(client_features)
                 # Create domain labels (which client/domain these features come from)
               
-
+                # Store features for later gradient computation
+                client_features_dict[client_proxy.cid] = client_features
                 # Add domain labels for each sample in this client's batch
                 domain_labels.extend([domain_idx] * client_features.size(0))                     
         
@@ -450,10 +452,9 @@ save_dir="feature_visualizations_gpaf"
           domain_loss.backward()
           client_gradients[client_id] = client_features.grad.cpu().numpy()
     
-    # Rest of your aggregation code...
     
-    # Prepare config with domain gradients
-    config = {
+        # Prepare config with domain gradients
+        config = {
         "round": server_round,
         "domain_gradients": {
             cid: gradients.tolist() 

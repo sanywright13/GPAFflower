@@ -346,7 +346,7 @@ discriminator,
     device: torch.device,
     client_id,
     epochs: int,
-   global_generator,server_discriminator
+   global_generator,domain_gradients
     ):
 
 # 
@@ -357,12 +357,12 @@ discriminator,
     net = train_one_epoch_gpaf(
         encoder,
 classifier,discriminator , trainloader, device,client_id,
-            epochs,global_generator,server_discriminator
+            epochs,global_generator,domain_gradients
         )
   
 #we must add a classifier that classifier into a binary categories
 #send back the classifier parameter to the server
-def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,server_discriminator=None,domain_gradients=None,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,domain_gradients=None,verbose=False):
     """Train the network on the training set."""
     #print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()

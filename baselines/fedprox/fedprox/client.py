@@ -226,7 +226,7 @@ class FederatedClient(fl.client.NumPyClient):
         for batch in self.traindata:
           _, labels = batch
           all_labels.append(labels)
-
+        '''
         # 3. Load discriminator state
         discriminator_state_serialized = config.get("discriminator_state", "{}")
         discriminator_state = json.loads(discriminator_state_serialized)
@@ -235,12 +235,21 @@ class FederatedClient(fl.client.NumPyClient):
         for k, v in discriminator_state.items()
     }
         self.server_discriminator.load_state_dict(discriminator_state)
+        '''
+        # Extract domain gradients for this client
+        domain_gradients = None
+        if "domain_gradients" in config:
+            client_gradients = config["domain_gradients"].get(str(self.client_id))
+            if client_gradients:
+                # Convert the list back to numpy array
+                domain_gradients = np.array(client_gradients)
+
         all_labels = torch.cat(all_labels).squeeze().to(self.device)
         label_distribution = compute_label_distribution(all_labels, self.num_classes)
         # Serialize the label distribution to a JSON string
         label_distribution_str = json.dumps(label_distribution)
        
-        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,self.server_discriminator)
+        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,domain_gradients)
       
         num_encoder_params = int(len(self.encoder.state_dict().keys()))
         #print(f'client parameters {self.get_parameters()}')        
@@ -330,7 +339,7 @@ save_dir="feature_visualizations"
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=35
+        num_epochs=5
         
         if strategy=="gpaf":
           numpy_client =  FederatedClient(
