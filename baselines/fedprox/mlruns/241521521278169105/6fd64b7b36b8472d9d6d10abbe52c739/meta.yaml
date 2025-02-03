@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/6fd64b7b36b8472d9d6d10abbe52c739/artifacts
+end_time: 1738609257568
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: 6fd64b7b36b8472d9d6d10abbe52c739
+run_name: casual-cod-919
+run_uuid: 6fd64b7b36b8472d9d6d10abbe52c739
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738609210848
+status: 3
+tags: []
+user_id: unknown

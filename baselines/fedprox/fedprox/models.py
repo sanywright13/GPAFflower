@@ -400,7 +400,8 @@ discriminator,
     device: torch.device,
     client_id,
     epochs: int,
-   global_generator,domain_discriminator
+   global_generator,domain_discriminator,
+   feature_generator,feature_discriminator
     ):
 
 # 
@@ -410,6 +411,7 @@ discriminator,
         encoder,
 classifier,discriminator , trainloader, device,client_id,
             epochs,global_generator,domain_discriminator
+            ,feature_generator,feature_discriminator
         )
     return grads
   
@@ -501,7 +503,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             optimizer_FD.zero_grad()
             
             # Generate conditional samples
-            noise_cgan = torch.randn(batch_size, 100).to(DEVICE)  # noise dimension for cGAN
+            noise_cgan = torch.randn(batch_size, 64, dtype=torch.float32).to(DEVICE)  # noise dimension for cGAN
             generated_features = feature_generator(noise_cgan, labels)
             
             # Real samples are encoder features
@@ -515,15 +517,25 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             d_cgan_loss.backward()
             optimizer_FD.step()
             
-            # Train Feature Generator
-            optimizer_FG.zero_grad()
-            generated_features = feature_generator(noise_cgan, labels)
-            validity = feature_discriminator(generated_features, labels)
             
-            g_cgan_loss = criterion(validity, torch.ones_like(validity))
+            # ---------------------
+            # Train Feature Generator
+            # ---------------------
+            optimizer_FG.zero_grad()
+            
+            # Generate enhanced features again
+            enhanced_features = feature_generator(local_features.detach(), labels)
+            validity = feature_discriminator(enhanced_features, labels)
+            
+            # Generator loss combines:
+            # 1. Adversarial loss (fool discriminator)
+            g_adv_loss = criterion(validity, torch.ones_like(validity))
+            # 2. Feature consistency loss (don't deviate too much from original features)
+            g_cons_loss = F.mse_loss(enhanced_features, local_features.detach())
+            
+            g_cgan_loss = g_adv_loss + 0.1 * g_cons_loss
             g_cgan_loss.backward()
             optimizer_FG.step()
-
 
             # -----------------
             # Train Generator
@@ -536,7 +548,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             local_features = encoder(images)
             local_features.requires_grad_(True)
             g_loss = criterion(discriminator(local_features), real_labels)
-
+           
         
             # a) Alignment loss - make local features match global distribution
             local_features = encoder(images)
@@ -576,11 +588,17 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
 
                     
             # Classification loss
-            logits = classifier(local_features)  # Detach to avoid affecting encoder
+            # Combine original and enhanced features
+            combined_features = 0.9 * local_features + 0.1 * enhanced_features.detach()
+            logits = classifier(combined_features)  # Detach to avoid affecting encoder
             cls_loss = criterion_cls(logits, labels)
+            
 
+            # Add feature enhancement influence to total loss
+            enhanced_local = feature_generator(local_features, labels)
+            enhancement_loss = F.mse_loss(local_features, enhanced_local.detach())
             # Total loss for encoder
-            total_loss = cls_loss + g_loss
+            total_loss = cls_loss + g_loss + 0.1 * enhancement_loss
            
             total_loss.backward()
             

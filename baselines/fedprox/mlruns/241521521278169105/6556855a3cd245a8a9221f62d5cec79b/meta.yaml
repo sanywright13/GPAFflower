@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/6556855a3cd245a8a9221f62d5cec79b/artifacts
+end_time: 1738613989559
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: 6556855a3cd245a8a9221f62d5cec79b
+run_name: selective-cow-474
+run_uuid: 6556855a3cd245a8a9221f62d5cec79b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738613089108
+status: 3
+tags: []
+user_id: unknown

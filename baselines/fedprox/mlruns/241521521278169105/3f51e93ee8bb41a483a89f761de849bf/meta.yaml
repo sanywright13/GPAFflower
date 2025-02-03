@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/3f51e93ee8bb41a483a89f761de849bf/artifacts
+end_time: 1738613989302
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: 3f51e93ee8bb41a483a89f761de849bf
+run_name: classy-gnat-249
+run_uuid: 3f51e93ee8bb41a483a89f761de849bf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738613165477
+status: 3
+tags: []
+user_id: unknown

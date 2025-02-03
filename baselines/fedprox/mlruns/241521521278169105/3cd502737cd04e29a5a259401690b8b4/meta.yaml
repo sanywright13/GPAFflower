@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/3cd502737cd04e29a5a259401690b8b4/artifacts
+end_time: 1738609256872
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: 3cd502737cd04e29a5a259401690b8b4
+run_name: resilient-ray-702
+run_uuid: 3cd502737cd04e29a5a259401690b8b4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738609210655
+status: 3
+tags: []
+user_id: unknown

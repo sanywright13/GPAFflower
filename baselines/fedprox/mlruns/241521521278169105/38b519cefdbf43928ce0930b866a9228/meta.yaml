@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/38b519cefdbf43928ce0930b866a9228/artifacts
+end_time: 1738611467366
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: 38b519cefdbf43928ce0930b866a9228
+run_name: debonair-turtle-419
+run_uuid: 38b519cefdbf43928ce0930b866a9228
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738611467319
+status: 3
+tags: []
+user_id: unknown

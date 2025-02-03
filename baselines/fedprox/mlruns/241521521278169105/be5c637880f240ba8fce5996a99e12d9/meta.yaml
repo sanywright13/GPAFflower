@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/be5c637880f240ba8fce5996a99e12d9/artifacts
+end_time: 1738613989835
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: be5c637880f240ba8fce5996a99e12d9
+run_name: glamorous-owl-309
+run_uuid: be5c637880f240ba8fce5996a99e12d9
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738613125979
+status: 3
+tags: []
+user_id: unknown

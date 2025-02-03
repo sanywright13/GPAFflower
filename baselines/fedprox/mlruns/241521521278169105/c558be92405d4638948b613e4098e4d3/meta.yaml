@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/c558be92405d4638948b613e4098e4d3/artifacts
+end_time: 1738609257221
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: c558be92405d4638948b613e4098e4d3
+run_name: kindly-snipe-657
+run_uuid: c558be92405d4638948b613e4098e4d3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738609210270
+status: 3
+tags: []
+user_id: unknown

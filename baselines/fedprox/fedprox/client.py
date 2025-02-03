@@ -28,7 +28,7 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
-from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,LocalDiscriminator
+from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,LocalDiscriminator,FeatureGenerator ,ConditionalDiscriminator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 class FederatedClient(fl.client.NumPyClient):
@@ -48,6 +48,17 @@ class FederatedClient(fl.client.NumPyClient):
         self.local_epochs=local_epochs
         self.client_id=client_id
         self.num_classes=2
+
+        self.feature_generator = FeatureGenerator(
+            feature_dim=64,  # Should match encoder output dimension
+            num_classes=self.num_classes,
+            hidden_dim=256
+        ).to(self.device)
+
+        self.feature_discriminator = ConditionalDiscriminator(
+            feature_dim=64,  # Should match encoder output dimension
+            num_classes=self.num_classes
+        ).to(self.device)
         # Move models to device
         self.encoder.to(self.device)
         self.classifier.to(self.device)
@@ -259,7 +270,7 @@ class FederatedClient(fl.client.NumPyClient):
         # Serialize the label distribution to a JSON string
         label_distribution_str = json.dumps(label_distribution)
        
-        grads=train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,self.domain_discriminator)
+        grads=train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,self.domain_discriminator,self.feature_generator,self.feature_discriminator)
       
         num_encoder_params =len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])
 
@@ -344,7 +355,9 @@ strategy='fedavg'
         hidden_dim = 128
         latent_dim = 64
         num_classes = 2  
+        # Initialize cGAN components
         
+
         encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
         #print(f' clqssifier intiliation {classifier}')

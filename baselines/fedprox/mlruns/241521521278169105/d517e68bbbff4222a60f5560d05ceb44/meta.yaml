@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/d517e68bbbff4222a60f5560d05ceb44/artifacts
+end_time: 1738612083128
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: d517e68bbbff4222a60f5560d05ceb44
+run_name: loud-penguin-621
+run_uuid: d517e68bbbff4222a60f5560d05ceb44
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738612083063
+status: 3
+tags: []
+user_id: unknown

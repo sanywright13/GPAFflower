@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/241521521278169105/53abd7a1a3dd4ef1a9fff89e60df5b4c/artifacts
+end_time: 1738611512586
+entry_point_name: ''
+experiment_id: '241521521278169105'
+lifecycle_stage: active
+run_id: 53abd7a1a3dd4ef1a9fff89e60df5b4c
+run_name: gifted-hound-801
+run_uuid: 53abd7a1a3dd4ef1a9fff89e60df5b4c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738611470013
+status: 3
+tags: []
+user_id: unknown

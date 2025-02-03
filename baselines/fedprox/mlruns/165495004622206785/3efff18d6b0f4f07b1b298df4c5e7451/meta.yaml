@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/165495004622206785/3efff18d6b0f4f07b1b298df4c5e7451/artifacts
+end_time: 1738617208746
+entry_point_name: ''
+experiment_id: '165495004622206785'
+lifecycle_stage: active
+run_id: 3efff18d6b0f4f07b1b298df4c5e7451
+run_name: bold-smelt-850
+run_uuid: 3efff18d6b0f4f07b1b298df4c5e7451
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738616354220
+status: 3
+tags: []
+user_id: unknown
