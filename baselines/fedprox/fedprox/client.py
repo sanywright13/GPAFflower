@@ -28,7 +28,7 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
-from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,ServerDiscriminator
+from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,LocalDiscriminator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 class FederatedClient(fl.client.NumPyClient):
@@ -54,7 +54,7 @@ class FederatedClient(fl.client.NumPyClient):
         self.discriminator.to(self.device)
         self.global_generator = GlobalGenerator(noise_dim=62, label_dim=2, hidden_dim=256  , output_dim=64)
         # Initialize server discriminator with GRL
-        self.server_discriminator = ServerDiscriminator(
+        self.domain_discriminator = LocalDiscriminator(
             feature_dim=64, 
             num_domains=self.num_classes
         ).to(self.device)
@@ -81,7 +81,8 @@ class FederatedClient(fl.client.NumPyClient):
       # Extract parameters and exclude 'num_batches_tracked'
       encoder_params = [val.cpu().numpy() for key, val in self.encoder.state_dict().items() if "num_batches_tracked" not in key]
       classifier_params = [val.cpu().numpy() for key, val in self.classifier.state_dict().items() if "num_batches_tracked" not in key]
-      parameters=encoder_params + classifier_params
+      discriminator_params = [val.cpu().numpy() for key, val in self.domain_discriminator.state_dict().items() if "num_batches_tracked" not in key]
+      parameters = encoder_params + classifier_params + discriminator_params
 
       #print(f' send client para format {type(parameters)}')
 
@@ -91,14 +92,12 @@ class FederatedClient(fl.client.NumPyClient):
       """Set the parameters of the encoder and classifier.
       Exclude 'num_batches_tracked' from the parameters.
       """
-       # Convert Flower Parameters object to List[np.ndarray]
-      #parameters = parameters_to_ndarrays(parameters)
-      #print(f'parameters after conversion: {type(parameters)}')  # Should be List[np.ndarray]
+ 
+      num_encoder_params =len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])
 
-      #parameters=parameters_to_ndarrays(parameters)
-      # Count the number of parameters for encoder and classifier
-      
-      num_encoder_params = len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])    
+      num_classifier_params = len([key for key in self.classifier.state_dict().keys() if "num_batches_tracked" not in key])
+      num_discriminator_params = len([key for key in self.domain_discriminator.state_dict().keys() if "num_batches_tracked" not in key])
+        
       # Extract encoder parameters
       encoder_params = parameters[:num_encoder_params]
       #print(f'encoder_params {encoder_params}')
@@ -112,7 +111,7 @@ class FederatedClient(fl.client.NumPyClient):
       
       
       # Extract classifier parameters
-      classifier_params = parameters[num_encoder_params:]
+      classifier_params = parameters[num_encoder_params : num_encoder_params + num_classifier_params]
       classifier_param_names = list(self.classifier.state_dict().keys())
       params_dict_cls = dict(zip(classifier_param_names, classifier_params))
       #print(f'classifier_params {classifier_params}')
@@ -120,13 +119,21 @@ class FederatedClient(fl.client.NumPyClient):
       classifier_state = OrderedDict(
           {k: torch.tensor(v) for k, v in params_dict_cls.items()}
       )
-      '''
-      for name, param in params_dict_cls.items():
-        print(f'client param name {name} and shape {param.shape}')
-      ''' 
 
       self.classifier.load_state_dict(classifier_state, strict=False)
+
+      discriminator_params = parameters[num_encoder_params + num_classifier_params : num_encoder_params + num_classifier_params + num_discriminator_params]
+
+      # Load discriminator
+      discriminator_param_names = [key for key in self.domain_discriminator.state_dict().keys() if "num_batches_tracked" not in key]
+      params_dict_disc = dict(zip(discriminator_param_names, discriminator_params))
+      discriminator_state = OrderedDict({k: torch.tensor(v) for k, v in params_dict_disc.items()})
+      self.domain_discriminator.load_state_dict(discriminator_state, strict=True)
+      
+      
       print(f'Classifier parameters updated')
+
+
     #second and call set_para  
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]
     ) -> Tuple[float, int, Dict]:
@@ -218,7 +225,6 @@ class FederatedClient(fl.client.NumPyClient):
 
         # Convert NumPy arrays to PyTorch tensors
         generator_params_tensors = [torch.tensor(param , dtype=torch.float32) for param in generator_params_ndarrays]
-        print(f'generator client {self.global_generator}')
         # Load generator parameters into the generator model
         for param, tensor in zip(self.global_generator.parameters(), generator_params_tensors):
           param.data = tensor.to(self.device)
@@ -226,32 +232,41 @@ class FederatedClient(fl.client.NumPyClient):
         for batch in self.traindata:
           _, labels = batch
           all_labels.append(labels)
-        '''
-        # 3. Load discriminator state
-        discriminator_state_serialized = config.get("discriminator_state", "{}")
-        discriminator_state = json.loads(discriminator_state_serialized)
-        discriminator_state = {
-        k: torch.tensor(np.array(v)).to(self.device) 
-        for k, v in discriminator_state.items()
-    }
-        self.server_discriminator.load_state_dict(discriminator_state)
-        '''
-        # Extract domain gradients for this client
-        domain_gradients = None
-        if "domain_gradients" in config:
-            client_gradients = config["domain_gradients"].get(str(self.client_id))
-            if client_gradients:
-                # Convert the list back to numpy array
-                domain_gradients = np.array(client_gradients)
+        
+        #load discriminator state
 
+        if "discriminator_params" in config:
+
+            # Get base64 encoded string
+            discr_params_b64 = config.get("discriminator_params", "")
+            
+            # Decode base64 and unpickle
+            discr_params_dict = pickle.loads(
+                base64.b64decode(discr_params_b64.encode('utf-8'))
+            )
+            
+            # Convert the dictionary to state dict with tensors
+            state_dict = {
+                name: torch.tensor(param_array, dtype=torch.float32).to(self.device)
+                for name, param_array in discr_params_dict.items()
+            }
+            
+            # Load state dict into domain discriminator
+            self.domain_discriminator.load_state_dict(state_dict)
+        
         all_labels = torch.cat(all_labels).squeeze().to(self.device)
         label_distribution = compute_label_distribution(all_labels, self.num_classes)
         # Serialize the label distribution to a JSON string
         label_distribution_str = json.dumps(label_distribution)
        
-        train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,domain_gradients)
+        grads=train_gpaf(self.encoder,self.classifier,self.discriminator, self.traindata,self.device,self.client_id,self.local_epochs,self.global_generator,self.domain_discriminator)
       
-        num_encoder_params = int(len(self.encoder.state_dict().keys()))
+        num_encoder_params =len([key for key in self.encoder.state_dict().keys() if "num_batches_tracked" not in key])
+
+        num_classifier_params = len([key for key in self.classifier.state_dict().keys() if "num_batches_tracked" not in key])
+        num_discriminator_params = len([key for key in self.domain_discriminator.state_dict().keys() if "num_batches_tracked" not in key])
+        
+      
         #print(f'client parameters {self.get_parameters()}')        
         # Extract features for server
         features = []
@@ -265,6 +280,9 @@ class FederatedClient(fl.client.NumPyClient):
         all_features = np.concatenate(features, axis=0)
         all_features_serialized = base64.b64encode(pickle.dumps(all_features)).decode('utf-8')
         # Fixed return statement
+        #serialized grads 
+        grads_serialized = base64.b64encode(pickle.dumps(grads)).decode('utf-8')
+
         # Clear memory
         del features
         del all_features
@@ -273,8 +291,11 @@ class FederatedClient(fl.client.NumPyClient):
         len(self.traindata),
         {
             "num_encoder_params": num_encoder_params,
+             "num_classifier_params": num_classifier_params,
+            "num_discriminator_params": num_discriminator_params,
             "label_distribution": label_distribution_str,
             "features": all_features_serialized,
+            "grads": grads_serialized
 
         
         }

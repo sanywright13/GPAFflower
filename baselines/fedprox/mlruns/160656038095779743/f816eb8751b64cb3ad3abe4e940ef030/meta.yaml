@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/f816eb8751b64cb3ad3abe4e940ef030/artifacts
+end_time: 1738531375804
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: f816eb8751b64cb3ad3abe4e940ef030
+run_name: funny-dolphin-471
+run_uuid: f816eb8751b64cb3ad3abe4e940ef030
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738531360854
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/65a88ff1c6d44040b9526228b3f66e63/artifacts
+end_time: 1738526310889
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 65a88ff1c6d44040b9526228b3f66e63
+run_name: handsome-pug-266
+run_uuid: 65a88ff1c6d44040b9526228b3f66e63
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738526301413
+status: 3
+tags: []
+user_id: unknown

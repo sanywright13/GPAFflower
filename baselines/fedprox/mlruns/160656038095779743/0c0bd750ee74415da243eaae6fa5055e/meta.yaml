@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/0c0bd750ee74415da243eaae6fa5055e/artifacts
+end_time: 1738526310652
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 0c0bd750ee74415da243eaae6fa5055e
+run_name: worried-roo-165
+run_uuid: 0c0bd750ee74415da243eaae6fa5055e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738526297418
+status: 3
+tags: []
+user_id: unknown

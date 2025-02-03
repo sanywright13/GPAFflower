@@ -15,8 +15,8 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 import json
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import Encoder, Classifier,test,test_gpaf ,GlobalGenerator,reparameterize,sample_labels,generate_feature_representation,ServerDiscriminator
-
+from fedprox.models import Encoder, Classifier,test,test_gpaf ,GlobalGenerator,reparameterize,sample_labels,generate_feature_representation,LocalDiscriminator
+from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 from flwr.server.client_proxy import ClientProxy
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 
@@ -100,15 +100,17 @@ class GPAFStrategy(FedAvg):
             k: v.cpu().numpy() 
             for k, v in self.generator.state_dict().items()
         }
-        self.server_discriminator = ServerDiscriminator(
+        self.local_discriminator = LocalDiscriminator(
             feature_dim=self.latent_dim, 
             num_domains=self.num_classes
         ).to(self.device)
         self.optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.001)
+        '''
         self.discriminator_optimizer = torch.optim.Adam(
             self.server_discriminator.parameters(), 
             lr=0.0002
         )
+        '''
         # Initialize label_probs with a default uniform distribution
         self.label_probs = {label: 1.0 / self.num_classes for label in range(self.num_classes)}
         # Store client models for ensemble predictions
@@ -125,19 +127,21 @@ save_dir="feature_visualizations_gpaf"
         # Initialize your models
         encoder = Encoder(self.latent_dim)
         classifier = Classifier(latent_dim=64, num_classes=2)
+        local_discriminator = LocalDiscriminator(
+            feature_dim=self.latent_dim, 
+            num_domains=self.num_classes
+        ).to(self.device)
         
         # Get parameters in the correct format
         encoder_params = [val.cpu().numpy() for key, val in encoder.state_dict().items() if "num_batches_tracked" not in key]  
         classifier_params = [val.cpu().numpy() for _, val in classifier.state_dict().items()]
-        
+        discriminator_params = [val.cpu().numpy() for _, val in local_discriminator.state_dict().items()]
+
         # Combine parameters
-        ndarrays = encoder_params + classifier_params
+        ndarrays = encoder_params + classifier_params + discriminator_params
         parameters=ndarrays_to_parameters(ndarrays)
         #print("Parameter types:")
-        '''
-        for i, param in enumerate(ndarrays):
-          print(f"  Param {i}: type={type(param)}, shape={param.shape if isinstance(param, np.ndarray) else 'N/A'}")
-        '''        
+             
         
         return parameters
         
@@ -284,15 +288,22 @@ save_dir="feature_visualizations_gpaf"
       # 3. Get discriminator state
       discriminator_state = {
         k: v.cpu().numpy() 
-        for k, v in self.server_discriminator.state_dict().items()
+        for k, v in self.local_discriminator.state_dict().items()
     }
-      discriminator_params_serialized = json.dumps(
-        {k: v.tolist() for k, v in discriminator_state.items()}
-    )
+      
+ 
+      #discriminator_params_serialized=json.dumps({k: v.tolist() for k, v in discriminator_state.items()})
+      # Get discriminator state as dictionary of numpy arrays
+   
+      # Serialize using pickle and base64
+      discriminator_params_serialized = base64.b64encode(
+        pickle.dumps(discriminator_state)
+      ).decode('utf-8')
+    
       config = {
             "round": server_round,
             "generator_params": generator_params_serialized,
-            "discriminator_state": discriminator_params_serialized
+            "discriminator_params": discriminator_params_serialized
         }
 
       client_proxies = client_manager.sample(
@@ -306,21 +317,31 @@ save_dir="feature_visualizations_gpaf"
             fit_ins.append((client, flwr.common.FitIns(parameters, config)))
          
       return fit_ins
-    def compute_domain_gradients(self, features):
-        """Compute gradients for domain adaptation"""
-        features = torch.tensor(features, requires_grad=True).to(self.device)
-        
-        # Forward pass through discriminator
-        log_probs = self.server_discriminator(features)
-        
-        # Compute domain loss (maximize entropy)
-        probs = torch.exp(log_probs)
-        entropy = -(probs * log_probs).sum(dim=1).mean()
-        loss = -entropy  # Negative because we want to maximize entropy
-        
-        # Compute gradients
-        loss.backward()
-        return features.grad.cpu().numpy()
+   
+    def discriminator_update_grads(
+      self,
+      net: torch.nn.Module,
+      weights_results: NDArrays,
+      gradients_aggregated: NDArrays,
+      weight_decay: float,
+        ) -> NDArrays:
+   
+      params_dict = zip(net.state_dict().keys(), weights_results)
+      state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+      net.load_state_dict(state_dict, strict=True)
+      optimizer = torch.optim.Adam(
+        list(net.parameters()), lr=0.0002, weight_decay=weight_decay
+      )
+      for params, grad_ins in zip(net.parameters(), gradients_aggregated):
+        params.grad = torch.tensor(grad_ins).to(params.dtype)
+      optimizer.step()
+      optimizer.zero_grad()
+      weights_prime = [val.cpu().numpy() for _, val in net.state_dict().items()]
+
+      return weights_prime
+
+
+
     def aggregate_fit(
         self,
         server_round: int,
@@ -385,15 +406,18 @@ save_dir="feature_visualizations_gpaf"
         #print(f'Label distribution: {self.label_probs}')
         # Extract num_encoder_params from the first client's metrics
         num_encoder_params = int(results[0][1].metrics["num_encoder_params"])
-      
+        num_classifier = int(results[0][1].metrics["num_classifier_params"])
+        num_discriminator = int(results[0][1].metrics["num_discriminator_params"])
         encoder_params_list = []
         classifier_params_list = []
+        discriminator_params_list=[]
         num_samples_list = []
         
         for _, fit_res in results:
             # Convert parameters to NumPy arrays
             client_parameters = parameters_to_ndarrays(fit_res.parameters)
-            
+            client_features = pickle.loads(base64.b64decode(features_serialized.encode('utf-8')))
+
             # Validate parameter length
             if len(client_parameters) < num_encoder_params:
                 print(f"Warning: Client parameters length ({len(client_parameters)}) is less than num_encoder_params ({num_encoder_params})")
@@ -401,15 +425,13 @@ save_dir="feature_visualizations_gpaf"
             # Debugging: Print the shape of each parameter
         
             # Split parameters into encoder and classifier
-            encoder_params = client_parameters[:num_encoder_params-1]
-            classifier_params = client_parameters[num_encoder_params-1:]
-            print("Shapes of client parameters:")
-            '''
-            for i, param in enumerate(client_parameters):
-              print(f"Parameter {i}: {param.shape}")    
-            '''
+            # Correct slicing of parameters
+            encoder_params = client_parameters[:num_encoder_params]
+            classifier_params = client_parameters[num_encoder_params : num_encoder_params + num_classifier]
+            discriminator_params = client_parameters[num_encoder_params + num_classifier : num_encoder_params + num_classifier + num_discriminator]
             encoder_params_list.append(encoder_params)
             classifier_params_list.append(classifier_params)
+            discriminator_params_list.append(discriminator_params)
             num_samples_list.append(fit_res.num_examples)
 
         # Train server discriminator
@@ -418,62 +440,40 @@ save_dir="feature_visualizations_gpaf"
         # Multiple training iterations for discriminator
         # Convert domain labels to one-hot encoding
         domain_one_hot = F.one_hot(all_domain_labels, num_classes=len(results)).float()
-        
-        # Train discriminator first
-        for _ in range(20):
-          self.discriminator_optimizer.zero_grad()
-        
-          # Forward pass through discriminator to get log probabilities
-          log_probs = self.server_discriminator(all_features)
-        
-          # Compute domain classification loss: sum(d_j^i * log(D_s(F(X))))
-          d_loss = -(domain_one_hot * log_probs).sum() / all_features.size(0)
-        
-          # Update discriminator
-          d_loss.backward()
-          self.discriminator_optimizer.step()
-          print(f' discriminator loss {d_loss}')
-    
-        # Now compute gradients for each client using the trained discriminator
-        client_gradients = {}
-        for client_id, client_features in client_features_dict.items():
-          # Detach features and create new computation graph
-          client_features = client_features.detach().requires_grad_(True)
-        
-          # Forward pass through trained discriminator
-          log_probs = self.server_discriminator(client_features)
-        
-          # Compute loss for this client's domain
-          client_domain_idx = next(idx for idx, (proxy, _) in enumerate(results) if proxy.cid == client_id)
-          domain_target = torch.full((client_features.size(0),), client_domain_idx, device=self.device, dtype=torch.long)
-          domain_loss = F.nll_loss(log_probs, domain_target)
-        
-          # Compute gradients
-          domain_loss.backward()
-          client_gradients[client_id] = client_features.grad.cpu().numpy()
-    
-    
-        # Prepare config with domain gradients
-        config = {
-        "round": server_round,
-        "domain_gradients": {
-            cid: gradients.tolist() 
-            for cid, gradients in client_gradients.items()
-        }
-    }
+      
         if not encoder_params_list or not classifier_params_list:
             print("No valid parameters to aggregate")
             return None, {}
         # Aggregate parameters using FedAvg
         aggregated_encoder_params = self._fedavg_parameters(encoder_params_list, num_samples_list)
         aggregated_classifier_params = self._fedavg_parameters(classifier_params_list, num_samples_list)
-        
+        aggregated_discriminator_params = self._fedavg_parameters(discriminator_params_list, num_samples_list)
+
+        #aggregate local disriminators grads
+        '''
+        grads_results: List[Tuple[NDArrays, int]] = [
+                (fit_res.metrics["grads"], fit_res.num_examples)  # type: ignore
+                for _, fit_res in results
+            ]
+        '''
+        grads_results: List[Tuple[NDArrays, int]] = [
+    (pickle.loads(base64.b64decode(fit_res.metrics["grads"])), fit_res.num_examples)
+    for _, fit_res in results
+]
+        weight_decay_ = 0.0001
+        gradients_aggregated  = aggregate(grads_results)
+        weights_prime = self.discriminator_update_grads(
+                self.local_discriminator,
+                aggregated_discriminator_params,
+                gradients_aggregated,
+                weight_decay_,
+            )
+        disc_parameters_aggregated = weights_prime
         # Combine aggregated parameters
-        aggregated_params = aggregated_encoder_params + aggregated_classifier_params
+        aggregated_params = aggregated_encoder_params + aggregated_classifier_params + aggregated_discriminator_params 
         
         #train the globel generator
         
-
         self._train_generator(self.label_probs,classifier_params_list)
      
         with self.mlflow.start_run(run_id=self.server_run_id):  
@@ -488,11 +488,7 @@ save_dir="feature_visualizations_gpaf"
         # Prepare config for next round
         config = {
             "server_round": server_round,
-              "domain_gradients": {
-                cid: gradients.tolist() 
-                for cid, gradients in client_gradients.items()
-            }
-          #  "discriminator_state": self.server_discriminator.state_dict()
+            
         }
         # Clear memory
         del features_list
@@ -528,17 +524,7 @@ save_dir="feature_visualizations_gpaf"
     def _create_client_model(self, classifier_params: NDArrays) -> nn.Module: 
         # Initialize the classifier
         classifier = Classifier(latent_dim=self.latent_dim, num_classes=2).to(self.device)
-        '''
-        # Debug print the original model structure
-        print("Original classifier parameter structure:")
-        for name, param in classifier.named_parameters():
-            print(f"  {name}: {param.shape}")
-            
-        # Debug print received parameters
-        print("\nReceived parameters:")
-        for i, param in enumerate(classifier_params):
-            print(f"  Param {i}: {param.shape}")
-        '''
+       
         # Create state dict with proper device placement
         classifier_state_dict = OrderedDict()
         
@@ -548,18 +534,7 @@ save_dir="feature_visualizations_gpaf"
                 param_tensor = torch.tensor(param_data, dtype=orig_param.dtype)
             else:
                 param_tensor = param_data.clone()
-            '''
-            # Check if shapes match
-            if param_tensor.shape != orig_param.shape:
-                print(f"Warning: Shape mismatch for {name}")
-                print(f"  Expected shape: {orig_param.shape}")
-                print(f"  Received shape: {param_tensor.shape}")
-                # Try to reshape if possible
-                try:
-                    param_tensor = param_tensor.reshape(orig_param.shape)
-                except:
-                    raise ValueError(f"Cannot reshape parameter {name} from {param_tensor.shape} to {orig_param.shape}")
-            '''
+          
             # Move to correct device
             param_tensor = param_tensor.to(self.device)
             classifier_state_dict[name] = param_tensor
@@ -569,9 +544,7 @@ save_dir="feature_visualizations_gpaf"
         classifier.load_state_dict(classifier_state_dict, strict=True)
         
         return classifier
-        
-    
-
+   
     def _train_generator(self,label_probs, classifier_params:  List[NDArrays]):
       """Train the generator using the ensemble of client classifiers."""
       with self.mlflow.start_run(run_id=self.server_run_id):  
@@ -645,8 +618,4 @@ save_dir="feature_visualizations_gpaf"
           print(f"Generator Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
             
         save_dir = "z_representations"
-        #os.makedirs(save_dir, exist_ok=True)
-        #np.save(os.path.join(save_dir, f"global_z_round_{self.server_round}.npy"), z.detach().cpu().numpy())
-        # Log loss and visualize z
-        #mlflow.log_metric(f"generator_loss_round_{server_round}", total_loss.item())
-
+     

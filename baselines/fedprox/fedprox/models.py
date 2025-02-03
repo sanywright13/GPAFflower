@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 #GLOBAL Generator 
@@ -174,22 +175,7 @@ class GlobalGenerator(nn.Module):
             return features, mu, logvar
         return features
 
-class ServerDiscriminator(nn.Module):
-    def __init__(self, feature_dim, num_domains):
-        super().__init__()
-        # Remove GRL and use standard discriminator architecture
-        self.discriminator = nn.Sequential(
-            nn.Linear(feature_dim, 512),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2),
-            nn.Linear(256, num_domains),
-            nn.LogSoftmax(dim=1)  # Use LogSoftmax for numerical stability
-        )
 
-    def forward(self, x):
-        return self.discriminator(x)
 
 def reparameterize(mu, logvar):
 
@@ -221,6 +207,8 @@ def reparameterization(mu, logvar,latent_dim):
     z = sampled_z * std + mu
     return z
 
+
+
 class Encoder(nn.Module):
     def __init__(self,latent_dim):
         super(Encoder, self).__init__()
@@ -235,7 +223,6 @@ class Encoder(nn.Module):
 
         self.mu = nn.Linear(512, latent_dim)
         self.logvar = nn.Linear(512, latent_dim)
-        self._register_hooks()
 
     def forward(self, img):
         #print(f"Encoder input shape (img): {img.shape}")  # Debug: Print input shape
@@ -251,35 +238,24 @@ class Encoder(nn.Module):
 
         #self._register_hooks()
         return z
-        
-        
-    def _register_hooks(self):
-        """Register hooks to track shapes at each layer."""
-        def hook_fn(module, input, output):
-            print(f"Layer enc: {module.__class__.__name__}")
-            print(f"Input shape enc: {input[0].shape}")
-            print(f"Output shape enc: {output.shape}")
-            print("-" * 20)
-
-class Decoder(nn.Module):
-    def __init__(self,latent_dim):
-        super(Decoder, self).__init__()
-
-        self.model = nn.Sequential(
-            nn.Linear(latent_dim, 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 512),
-            nn.BatchNorm1d(512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, int(np.prod(img_shape))),
-            nn.Tanh(),
-        )
-        
-    def forward(self, z):
-        img_flat = self.model(z)
-        img = img_flat.view(img_flat.shape[0], *img_shape)
-        return img
+  
     
+
+class LocalDiscriminator(nn.Module):
+    """Modified discriminator for multi-domain classification."""
+    def __init__(self, feature_dim, num_domains):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Linear(feature_dim, 256),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 3)  # Output logits for each domain
+        )
+    
+    def forward(self, x):
+        return self.model(x)
 
 class Discriminator(nn.Module):
     def __init__(self,latent_dim):
@@ -336,6 +312,84 @@ class Classifier(nn.Module):
             print("-" * 20)
 
 
+#Cgans Architecture 
+
+class FeatureGenerator(nn.Module):
+    def __init__(self, feature_dim=64, num_classes=2, hidden_dim=256):
+        super().__init__()
+        self.label_embedding = nn.Embedding(num_classes, 32)
+        
+        # Input will be local features and label embedding
+        input_dim = feature_dim + 32  # feature_dim + label_embedding_dim
+        
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.BatchNorm1d(hidden_dim),
+            
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.BatchNorm1d(hidden_dim),
+            
+            nn.Linear(hidden_dim, feature_dim),
+            nn.Tanh()  # Normalize output features
+        )
+        
+    def forward(self, features, labels):
+        # Embed labels
+        label_embedding = self.label_embedding(labels)
+        
+        # Concatenate features with label embedding
+        x = torch.cat([features, label_embedding], dim=1)
+        
+        # Generate enhanced features
+        enhanced_features = self.model(x)
+        return enhanced_features
+
+class ConditionalDiscriminator(nn.Module):
+    def __init__(self, feature_dim=64, num_classes=2):
+        super().__init__()
+        
+        # Feature input layer
+        self.feature_layer = nn.Sequential(
+            nn.Linear(feature_dim, 256),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        # Label embedding layer
+        self.label_layer = nn.Sequential(
+            nn.Embedding(num_classes, 256),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        # Combined discriminator layers
+        self.combined_layer = nn.Sequential(
+            nn.Linear(512, 512),  # 256 (features) + 256 (label)
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(0.3),
+            
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(0.3),
+            
+            nn.Linear(256, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, features, labels):
+        # Process features and labels separately
+        feature_repr = self.feature_layer(features)
+        label_repr = self.label_layer(labels).squeeze(1)
+        
+        # Combine representations
+        combined = torch.cat([feature_repr, label_repr], dim=1)
+        
+        # Discriminate
+        validity = self.combined_layer(combined)
+        return validity
+
+        
+
 
 
 
@@ -346,42 +400,54 @@ discriminator,
     device: torch.device,
     client_id,
     epochs: int,
-   global_generator,domain_gradients
+   global_generator,domain_discriminator
     ):
 
 # 
     learning_rate=0.01
-    
-    #global_params = [val.detach().clone() for val in net.parameters()]
-    
-    net = train_one_epoch_gpaf(
+        
+    grads = train_one_epoch_gpaf(
         encoder,
 classifier,discriminator , trainloader, device,client_id,
-            epochs,global_generator,domain_gradients
+            epochs,global_generator,domain_discriminator
         )
+    return grads
   
 #we must add a classifier that classifier into a binary categories
 #send back the classifier parameter to the server
-def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,domain_gradients=None,verbose=False):
+def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,client_id, epochs,global_generator,local_discriminator,feature_generator=None,feature_discriminator=None,verbose=False):
     """Train the network on the training set."""
-    #print(f'local global representation z are {global_z}')
     #criterion = torch.nn.CrossEntropyLoss()
     lr=0.00013914064388085564
-    
-    
-    optimizer_E = torch.optim.Adam(encoder.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    num_clients=3
+    optimizer_E = torch.optim.Adam(encoder.parameters(), lr=lr, weight_decay=1e-4)
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-    optimizer_C = torch.optim.Adam(classifier.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    optimizer_C = torch.optim.Adam(classifier.parameters(), lr=lr, weight_decay=1e-4)
     criterion = nn.BCELoss()  # Binary cross-entropy loss
     criterion_cls = nn.CrossEntropyLoss()  # Classification loss (for binary classification)
+    
+    # Additional optimizers for cGAN
+    optimizer_FG = torch.optim.Adam(feature_generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    optimizer_FD = torch.optim.Adam(feature_discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    
+
+    encoder.train()
+    classifier.train()
+    discriminator.train()
+    local_discriminator.train()
+
+    feature_generator.train()
+    feature_discriminator.train()
+
     for epoch in range(epochs):
         print('==start local training ==')
-        correct, total, epoch_loss = 0, 0, 0.0
+        correct, total, epoch_loss ,loss_sumi ,loss_sum = 0, 0, 0.0 , 0 , 0
         for batch_idx, batch in enumerate(trainloader):
             images, labels = batch
             images, labels = images.to(DEVICE , dtype=torch.float32), labels.to(DEVICE  , dtype=torch.long)
             
-           
+            lambda_align = 1.0   # Full weight to alignment loss
+            lambda_adv = 0.1     # Start smaller for adversarial component
             # Ensure labels have shape (N,1)
             if len(labels.shape) == 1:
                 labels = labels.unsqueeze(1)
@@ -423,81 +489,133 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             #local_features = encoder(real_imgs)
             fake_labels = torch.zeros(real_imgs.size(0), 1 , dtype=torch.float32)  # Fake labels
             fake_loss = criterion(discriminator(local_features.detach()), fake_labels)
-            #print(f'local train feat {discriminator(local_features.detach()).shape}')
-            #print(f'local encoder features {local_features}')
-            
+           
             # Total discriminator loss
             d_loss = 0.5 * (real_loss + fake_loss)
             d_loss.backward()
             optimizer_D.step()
 
+          
+            # Second phase: cGAN training
+            # Train Feature Discriminator
+            optimizer_FD.zero_grad()
+            
+            # Generate conditional samples
+            noise_cgan = torch.randn(batch_size, 100).to(DEVICE)  # noise dimension for cGAN
+            generated_features = feature_generator(noise_cgan, labels)
+            
+            # Real samples are encoder features
+            real_validity = feature_discriminator(local_features.detach(), labels)
+            fake_validity = feature_discriminator(generated_features.detach(), labels)
+            
+            d_real_loss = criterion(real_validity, torch.ones_like(real_validity))
+            d_fake_loss = criterion(fake_validity, torch.zeros_like(fake_validity))
+            d_cgan_loss = (d_real_loss + d_fake_loss) / 2
+            
+            d_cgan_loss.backward()
+            optimizer_FD.step()
+            
+            # Train Feature Generator
+            optimizer_FG.zero_grad()
+            generated_features = feature_generator(noise_cgan, labels)
+            validity = feature_discriminator(generated_features, labels)
+            
+            g_cgan_loss = criterion(validity, torch.ones_like(validity))
+            g_cgan_loss.backward()
+            optimizer_FG.step()
+
+
             # -----------------
             # Train Generator
             # -----------------
+             # 3. Train Encoder and Classifier
             optimizer_E.zero_grad()
-            #print(f' z shape on train 2 {real_labels.shape}')
-            #print(f'discrim:  {discriminator(local_features).shape}')
-            # Generator loss: Generator should fool the discriminator
-            #discriminator(local_features)
-            
+            optimizer_C.zero_grad()
+           
             # Get fresh features for encoder training
-            #local_features = encoder(images)
+            local_features = encoder(images)
             local_features.requires_grad_(True)
             g_loss = criterion(discriminator(local_features), real_labels)
 
-            #local minimizing federated adverserial loss
-            # If we have domain gradients, apply them
-           
-            if domain_gradients is not None and epoch==0:
-                print(f' gradients avalaible')
-                batch_gradients = domain_gradients[batch_idx] if isinstance(domain_gradients, list) else domain_gradients
-                batch_gradients = torch.tensor(batch_gradients, device=DEVICE)
-                
-                # Reshape gradients to match features shape if necessary
-                if batch_gradients.shape != local_features.shape:
-                    batch_gradients = batch_gradients.reshape(local_features.shape)
-                
-                # Scale gradients based on progress coefficient
-                scaled_gradients =  batch_gradients
-                
-                # Apply domain gradients
-                local_features.backward(-scaled_gradients, retain_graph=True)
-            
-            # Federated adversarial loss - make features domain invariant
-          
-            encoder_loss = g_loss
         
-            encoder_loss.backward()
-            optimizer_E.step()
-
-            #Classification loss with label
-            
-            #print(f' label size shape {labels.shape}')
-            # -----------------
-            # Train Classifier
-            # -----------------
-            optimizer_C.zero_grad()
+            # a) Alignment loss - make local features match global distribution
             local_features = encoder(images)
-            # Classification loss
-            logits = classifier(local_features.detach())  # Detach to avoid affecting encoder
-            cls_loss = criterion_cls(logits, labels)
-            cls_loss.backward()
-            optimizer_C.step()
-
+          
+            # b) Domain confusion loss with GRL
+            grl_features = GradientReversalLayer()(local_features)
+            confusion_logits = local_discriminator(grl_features)
             
+            # Create uniform distribution target
+            uniform_target = torch.full(
+                (batch_size, num_clients), 
+            1.0/num_clients,
+            device=device
+             )
+        
+            # KL divergence for domain confusion
+            confusion_loss = F.kl_div(
+            F.log_softmax(confusion_logits, dim=1),
+            uniform_target,
+            reduction='batchmean'
+            )
+
+            loss= lambda_adv * confusion_loss  
+            
+            
+            #loss_sumi += loss_sum.item()
+            grads = torch.autograd.grad(
+                loss, list(local_discriminator.parameters()), create_graph=True, retain_graph=True
+            )
+            alpha=0.0002
+            for param, grad_ in zip(local_discriminator.parameters(), grads):
+                param.data = param.data - alpha * grad_
+
+            for param in local_discriminator.parameters():
+                if param.grad is not None:
+                    param.grad.zero_()
+
+                    
+            # Classification loss
+            logits = classifier(local_features)  # Detach to avoid affecting encoder
+            cls_loss = criterion_cls(logits, labels)
+
+            # Total loss for encoder
+            total_loss = cls_loss + g_loss
+           
+            total_loss.backward()
+            
+            optimizer_E.step()
+            optimizer_C.step()
+          
+             # Accumulate loss
+            epoch_loss += total_loss.item()
+            loss_sum += loss * labels.size(0)
             # Compute accuracy
             _, predicted = torch.max(logits.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            # Accumulate loss
-            epoch_loss += cls_loss.item()
-            #print(labels)
             
+
         epoch_loss /= len(trainloader.dataset)
         epoch_acc = correct / total
         
         print(f"local Epoch {epoch+1}: Loss = {epoch_loss:.4f}, Accuracy = {epoch_acc:.4f} (Client {client_id})")
         #print(f"Epoch {epoch+1}: train loss {epoch_loss}, accuracy {epoch_acc} of client : {client_id}")
+    
+    
+
+    for param in local_discriminator.parameters():
+        if param.grad is not None:
+            param.grad.zero_()
+
+    loss_sum = loss_sum / len(trainloader.dataset)
+    grads = torch.autograd.grad(loss_sum, list(local_discriminator.parameters()))
+    grads = [grad_.cpu().numpy() for grad_ in grads]
+
+    print(f"local Epoch {epoch+1}: Loss_local/-discriminator = {loss_sum:.4f}, for (Client {client_id})")
+
+    return grads
+
 
 def test_gpaf(encoder,classifier, testloader,device):
         """Evaluate the network on the entire test set."""

@@ -40,7 +40,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="gpaf"
 # Create or get experiment
-experiment_name = "fedavg_Fed_FL30"
+experiment_name = "fedavg_Fed_FL31"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)

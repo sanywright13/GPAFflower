@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/17a8fa9289334e4d8554f7b2eabce29a/artifacts
+end_time: 1738531135713
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 17a8fa9289334e4d8554f7b2eabce29a
+run_name: charming-auk-873
+run_uuid: 17a8fa9289334e4d8554f7b2eabce29a
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738531135632
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/eae5920bbe5b427291d8f2f156531e3b/artifacts
+end_time: 1738531148720
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: eae5920bbe5b427291d8f2f156531e3b
+run_name: abrasive-ant-501
+run_uuid: eae5920bbe5b427291d8f2f156531e3b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738531138912
+status: 3
+tags: []
+user_id: unknown

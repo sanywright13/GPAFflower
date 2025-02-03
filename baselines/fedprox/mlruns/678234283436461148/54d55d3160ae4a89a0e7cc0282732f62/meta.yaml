@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/678234283436461148/54d55d3160ae4a89a0e7cc0282732f62/artifacts
+end_time: 1738532286245
+entry_point_name: ''
+experiment_id: '678234283436461148'
+lifecycle_stage: active
+run_id: 54d55d3160ae4a89a0e7cc0282732f62
+run_name: marvelous-cod-44
+run_uuid: 54d55d3160ae4a89a0e7cc0282732f62
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738531709524
+status: 3
+tags: []
+user_id: unknown

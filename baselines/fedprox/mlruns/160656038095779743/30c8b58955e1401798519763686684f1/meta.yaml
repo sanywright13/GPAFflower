@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/30c8b58955e1401798519763686684f1/artifacts
+end_time: 1738530544174
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 30c8b58955e1401798519763686684f1
+run_name: sincere-goat-653
+run_uuid: 30c8b58955e1401798519763686684f1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738530537402
+status: 3
+tags: []
+user_id: unknown

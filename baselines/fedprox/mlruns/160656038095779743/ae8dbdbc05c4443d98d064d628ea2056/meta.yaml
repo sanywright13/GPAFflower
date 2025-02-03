@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/ae8dbdbc05c4443d98d064d628ea2056/artifacts
+end_time: 1738530535281
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: ae8dbdbc05c4443d98d064d628ea2056
+run_name: agreeable-kit-511
+run_uuid: ae8dbdbc05c4443d98d064d628ea2056
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738530535240
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/94a752d0589945658390d6573446f8d1/artifacts
+end_time: 1738530869288
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 94a752d0589945658390d6573446f8d1
+run_name: smiling-wolf-68
+run_uuid: 94a752d0589945658390d6573446f8d1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738530869234
+status: 3
+tags: []
+user_id: unknown

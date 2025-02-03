@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/39e4b723ab734ea49681286e55221653/artifacts
+end_time: 1738531149008
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 39e4b723ab734ea49681286e55221653
+run_name: melodic-calf-144
+run_uuid: 39e4b723ab734ea49681286e55221653
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738531138651
+status: 3
+tags: []
+user_id: unknown

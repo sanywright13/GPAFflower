@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/e034ab7402c94940a320ceaa73b9def0/artifacts
+end_time: 1738530543544
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: e034ab7402c94940a320ceaa73b9def0
+run_name: indecisive-ape-667
+run_uuid: e034ab7402c94940a320ceaa73b9def0
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738530537767
+status: 3
+tags: []
+user_id: unknown

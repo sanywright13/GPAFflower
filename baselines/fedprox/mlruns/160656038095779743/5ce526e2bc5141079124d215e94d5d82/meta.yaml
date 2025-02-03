@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/160656038095779743/5ce526e2bc5141079124d215e94d5d82/artifacts
+end_time: 1738526310421
+entry_point_name: ''
+experiment_id: '160656038095779743'
+lifecycle_stage: active
+run_id: 5ce526e2bc5141079124d215e94d5d82
+run_name: resilient-smelt-767
+run_uuid: 5ce526e2bc5141079124d215e94d5d82
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738526294425
+status: 3
+tags: []
+user_id: unknown
