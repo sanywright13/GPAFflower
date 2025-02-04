@@ -562,7 +562,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
         
             # a) Alignment loss - make local features match global distribution
             local_features = encoder(images)
-          
+            
             # b) Domain confusion loss with GRL
             grl_features = GradientReversalLayer()(local_features)
             confusion_logits = local_discriminator(grl_features)

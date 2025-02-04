@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/e4d633cdc67b46da8c13218034b84253/artifacts
+end_time: 1738694194825
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: e4d633cdc67b46da8c13218034b84253
+run_name: bouncy-eel-416
+run_uuid: e4d633cdc67b46da8c13218034b84253
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738693629082
+status: 3
+tags: []
+user_id: unknown
