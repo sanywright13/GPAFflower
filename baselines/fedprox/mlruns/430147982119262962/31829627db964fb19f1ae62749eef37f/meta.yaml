@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/31829627db964fb19f1ae62749eef37f/artifacts
+end_time: 1738682511877
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 31829627db964fb19f1ae62749eef37f
+run_name: stately-stoat-406
+run_uuid: 31829627db964fb19f1ae62749eef37f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738681703665
+status: 3
+tags: []
+user_id: unknown

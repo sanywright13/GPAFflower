@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/f61c072fb41d4387ac15c629b4d69cde/artifacts
+end_time: 1738671402883
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: f61c072fb41d4387ac15c629b4d69cde
+run_name: bald-sheep-870
+run_uuid: f61c072fb41d4387ac15c629b4d69cde
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738671402829
+status: 3
+tags: []
+user_id: unknown

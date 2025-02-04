@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/c9e3d8ca8d374653b2552d214382ba9e/artifacts
+end_time: 1738685167827
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: c9e3d8ca8d374653b2552d214382ba9e
+run_name: worried-gnat-412
+run_uuid: c9e3d8ca8d374653b2552d214382ba9e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738684519138
+status: 3
+tags: []
+user_id: unknown

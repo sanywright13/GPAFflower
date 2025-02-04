@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/5d674010389e4b0493e3d9d0f42115d3/artifacts
+end_time: 1738674437249
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 5d674010389e4b0493e3d9d0f42115d3
+run_name: abundant-bass-730
+run_uuid: 5d674010389e4b0493e3d9d0f42115d3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738674437113
+status: 3
+tags: []
+user_id: unknown

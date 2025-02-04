@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/8629e7b1635c496f9f8360c900cfea32/artifacts
+end_time: 1738685168354
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 8629e7b1635c496f9f8360c900cfea32
+run_name: spiffy-zebra-896
+run_uuid: 8629e7b1635c496f9f8360c900cfea32
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738684584434
+status: 3
+tags: []
+user_id: unknown

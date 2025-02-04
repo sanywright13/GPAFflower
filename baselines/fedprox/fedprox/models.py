@@ -10,7 +10,11 @@ from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 #GLOBAL Generator 
-
+from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
+import numpy as np
+import json
+import os
+from datetime import datetime
 # use a Generator Network with reparametrization trick
 import numpy as np
 import torch
@@ -159,6 +163,7 @@ class GlobalGenerator(nn.Module):
         label_feat = self.label_proj(labels)  # [batch_size, hidden_dim]
         
         # Combine features
+        #print(f'feat size {noise_feat.size} and lab {label_feat.size}')
         combined = torch.cat([noise_feat, label_feat], dim=1)  # [batch_size, 2*hidden_dim]
         
         # Generate mu and logvar
@@ -200,13 +205,12 @@ def generate_feature_representation(generator, noise, labels_one_hot):
     return z
 #in our GPAF we will train a VAE-GAN local model in each client
 img_shape=(28,28)
-def reparameterization(mu, logvar,latent_dim):
+def reparameterization(mu, logvar):
     std = torch.exp(logvar / 2)
     #sampled_z = Variable(Tensor(np.random.normal(0, 1, (mu.size(0), latent_dim))))
     sampled_z = torch.randn_like(mu)  # Sample from standard normal distribution
     z = sampled_z * std + mu
     return z
-
 
 
 class Encoder(nn.Module):
@@ -233,7 +237,7 @@ class Encoder(nn.Module):
 
         mu = self.mu(x)
         logvar = self.logvar(x)
-        z = reparameterization(mu, logvar,self.latent_dim)
+        z = reparameterization(mu, logvar)
         #print(f"Encoder output shape (z): {z.shape}")  # Debug: Print output shape
 
         #self._register_hooks()
@@ -444,10 +448,15 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
     for epoch in range(epochs):
         print('==start local training ==')
         correct, total, epoch_loss ,loss_sumi ,loss_sum = 0, 0, 0.0 , 0 , 0
+
         for batch_idx, batch in enumerate(trainloader):
+           
             images, labels = batch
             images, labels = images.to(DEVICE , dtype=torch.float32), labels.to(DEVICE  , dtype=torch.long)
-            
+            # Debug prints
+            #print(f"batch idx {batch_idx} and Images shape: {images.size}")
+
+       
             lambda_align = 1.0   # Full weight to alignment loss
             lambda_adv = 0.1     # Start smaller for adversarial component
             # Ensure labels have shape (N,1)
@@ -497,7 +506,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             d_loss.backward()
             optimizer_D.step()
 
-          
+            '''
             # Second phase: cGAN training
             # Train Feature Discriminator
             optimizer_FD.zero_grad()
@@ -537,6 +546,7 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
             g_cgan_loss.backward()
             optimizer_FG.step()
 
+           '''
             # -----------------
             # Train Generator
             # -----------------
@@ -589,16 +599,16 @@ def train_one_epoch_gpaf(encoder,classifier,discriminator,trainloader, DEVICE,cl
                     
             # Classification loss
             # Combine original and enhanced features
-            combined_features = 0.9 * local_features + 0.1 * enhanced_features.detach()
-            logits = classifier(combined_features)  # Detach to avoid affecting encoder
+            #combined_features = 0.7 * local_features + 0.3 * enhanced_features.detach()
+            logits = classifier(local_features)  # Detach to avoid affecting encoder
             cls_loss = criterion_cls(logits, labels)
             
 
             # Add feature enhancement influence to total loss
-            enhanced_local = feature_generator(local_features, labels)
-            enhancement_loss = F.mse_loss(local_features, enhanced_local.detach())
+            #enhanced_local = feature_generator(local_features, labels)
+            #enhancement_loss = F.mse_loss(local_features, enhanced_local.detach())
             # Total loss for encoder
-            total_loss = cls_loss + g_loss + 0.1 * enhancement_loss
+            total_loss = cls_loss + g_loss #+ 0.3 * enhancement_loss
            
             total_loss.backward()
             
@@ -644,6 +654,8 @@ def test_gpaf(encoder,classifier, testloader,device):
         total_loss = 0.0
         correct = 0
         total = 0
+        all_preds = []
+        all_labels = []
         print(f' ==== client test func')
         with torch.no_grad():
             for inputs, labels in testloader:
@@ -661,12 +673,32 @@ def test_gpaf(encoder,classifier, testloader,device):
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                # Collect predictions and labels
+                all_preds.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
 
         # Compute average loss and accuracy
         avg_loss = total_loss / len(testloader)
         avg_accuracy = correct / total
+        # Convert to numpy arrays
+        all_preds = np.array(all_preds)
+        all_labels = np.array(all_labels)
+        
+        # Calculate metrics
+        metrics = {
+            'accuracy': (all_preds == all_labels).mean(),
+            'f1_score': f1_score(all_labels, all_preds, average='weighted'),
+            'precision': precision_score(all_labels, all_preds, average='weighted'),
+            'recall': recall_score(all_labels, all_preds, average='weighted')
+        }
+        # Get confusion matrix
+        cm = confusion_matrix(all_labels, all_preds)
+        metrics['confusion_matrix'] = cm.tolist()
 
-        return avg_loss, avg_accuracy
+        
+        
+
+        return avg_loss, avg_accuracy ,metrics
 
 def test(
     net: nn.Module, testloader: DataLoader, device: torch.device

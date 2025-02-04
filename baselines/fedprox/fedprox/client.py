@@ -15,6 +15,8 @@ from flwr.client import NumPyClient, Client
 from flwr.common import ConfigsRecord, MetricsRecord, ParametersRecord
 from  mlflow.tracking import MlflowClient
 import base64
+from datetime import datetime
+
 import pickle
 from flwr.common import (
     EvaluateIns,
@@ -28,6 +30,7 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
+import os
 from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,LocalDiscriminator,FeatureGenerator ,ConditionalDiscriminator
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
@@ -48,7 +51,10 @@ class FederatedClient(fl.client.NumPyClient):
         self.local_epochs=local_epochs
         self.client_id=client_id
         self.num_classes=2
-
+        self.num_clients=3
+        self.save_dir='./metrics'
+        self.best_valid_acc = {i: 0.0 for i in range(self.num_clients)}
+        os.makedirs(self.save_dir, exist_ok=True)
         self.feature_generator = FeatureGenerator(
             feature_dim=64,  # Should match encoder output dimension
             num_classes=self.num_classes,
@@ -151,10 +157,36 @@ class FederatedClient(fl.client.NumPyClient):
         """Implement distributed evaluation for a given client."""
         print(f'===evaluate client=== {type(parameters)}')
         self.set_parameters(parameters)
-        loss, accuracy = test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
+        
+        loss, accuracy , metrics= test_gpaf(self.encoder,self.classifier, self.validdata, self.device)
         #get the round in config
         # Log evaluation metrics using mlflow directly
+        current_acc = metrics['accuracy']
+        
+        if current_acc > self.best_valid_acc[self.client_id]:
+            self.best_valid_acc[self.client_id] = current_acc
+            
+            # Prepare metrics for saving
+            save_dict = {
+               
+                'timestamp': datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
+                'metrics': metrics
+            }
+            
+            # Save to file
+            filename = f'client_{self.client_id}_best_metrics.json'
+            filepath = os.path.join(self.save_dir, filename)
+            
+            with open(filepath, 'w') as f:
+                json.dump(save_dict, f, indent=4)
 
+            server_round=config.get("server_round")
+            print(f"\nNew best performance for Client {self.client_id} server round {server_round}")
+            print(f"Accuracy: {metrics['accuracy']:.4f}")
+            print(f"F1 Score: {metrics['f1_score']:.4f}")
+            print(f"Precision: {metrics['precision']:.4f}")
+            print(f"Recall: {metrics['recall']:.4f}")
+            
         # Extract features and labels
         val_features, val_labels = extract_features_and_labels(
         self.encoder,
@@ -373,7 +405,7 @@ save_dir="feature_visualizations"
           )
         #print(f'  ffghf {trainloader}')
         valloader = valloaders[int(cid)]
-        num_epochs=35
+        num_epochs=2
         
         if strategy=="gpaf":
           numpy_client =  FederatedClient(

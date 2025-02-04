@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/5173fb6067ee452e9187f36d374ead15/artifacts
+end_time: 1738674290852
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 5173fb6067ee452e9187f36d374ead15
+run_name: fun-shrimp-799
+run_uuid: 5173fb6067ee452e9187f36d374ead15
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738674290606
+status: 3
+tags: []
+user_id: unknown

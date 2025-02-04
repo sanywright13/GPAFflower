@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/40c0a8f5d30f4a0b8857075336f98732/artifacts
+end_time: 1738671464280
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 40c0a8f5d30f4a0b8857075336f98732
+run_name: angry-roo-622
+run_uuid: 40c0a8f5d30f4a0b8857075336f98732
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738671407758
+status: 3
+tags: []
+user_id: unknown

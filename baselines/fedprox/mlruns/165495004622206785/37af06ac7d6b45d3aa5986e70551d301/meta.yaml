@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/165495004622206785/37af06ac7d6b45d3aa5986e70551d301/artifacts
+end_time: 1738665507331
+entry_point_name: ''
+experiment_id: '165495004622206785'
+lifecycle_stage: active
+run_id: 37af06ac7d6b45d3aa5986e70551d301
+run_name: whimsical-mare-22
+run_uuid: 37af06ac7d6b45d3aa5986e70551d301
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738664981412
+status: 3
+tags: []
+user_id: unknown

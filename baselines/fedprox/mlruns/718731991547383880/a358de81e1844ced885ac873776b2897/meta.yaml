@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/718731991547383880/a358de81e1844ced885ac873776b2897/artifacts
+end_time: 1738666451840
+entry_point_name: ''
+experiment_id: '718731991547383880'
+lifecycle_stage: active
+run_id: a358de81e1844ced885ac873776b2897
+run_name: masked-horse-296
+run_uuid: a358de81e1844ced885ac873776b2897
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738665621600
+status: 3
+tags: []
+user_id: unknown

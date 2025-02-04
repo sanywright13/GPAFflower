@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/2387a8d3f93b444bbe96679bdbd43081/artifacts
+end_time: 1738670581988
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 2387a8d3f93b444bbe96679bdbd43081
+run_name: nosy-snipe-851
+run_uuid: 2387a8d3f93b444bbe96679bdbd43081
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738670581878
+status: 3
+tags: []
+user_id: unknown

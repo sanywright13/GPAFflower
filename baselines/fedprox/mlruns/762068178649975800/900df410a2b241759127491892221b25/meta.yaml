@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/900df410a2b241759127491892221b25/artifacts
+end_time: 1738674437047
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 900df410a2b241759127491892221b25
+run_name: aged-bat-621
+run_uuid: 900df410a2b241759127491892221b25
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738674436862
+status: 3
+tags: []
+user_id: unknown

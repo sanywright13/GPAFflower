@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/06b03ba24eee4791bdbbcc5e0d90c90b/artifacts
+end_time: 1738674290442
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 06b03ba24eee4791bdbbcc5e0d90c90b
+run_name: burly-elk-6
+run_uuid: 06b03ba24eee4791bdbbcc5e0d90c90b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738674290218
+status: 3
+tags: []
+user_id: unknown

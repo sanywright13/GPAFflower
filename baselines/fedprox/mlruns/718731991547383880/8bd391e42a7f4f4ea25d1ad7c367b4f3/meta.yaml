@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/718731991547383880/8bd391e42a7f4f4ea25d1ad7c367b4f3/artifacts
+end_time: 1738666452083
+entry_point_name: ''
+experiment_id: '718731991547383880'
+lifecycle_stage: active
+run_id: 8bd391e42a7f4f4ea25d1ad7c367b4f3
+run_name: classy-goose-122
+run_uuid: 8bd391e42a7f4f4ea25d1ad7c367b4f3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738665654618
+status: 3
+tags: []
+user_id: unknown

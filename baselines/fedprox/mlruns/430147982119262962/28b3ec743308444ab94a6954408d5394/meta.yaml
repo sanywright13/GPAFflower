@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/28b3ec743308444ab94a6954408d5394/artifacts
+end_time: 1738690839451
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 28b3ec743308444ab94a6954408d5394
+run_name: unique-goose-776
+run_uuid: 28b3ec743308444ab94a6954408d5394
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738690816164
+status: 3
+tags: []
+user_id: unknown

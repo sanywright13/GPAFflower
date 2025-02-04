@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/725418c2f9194b2f9eae7d1edc38c21c/artifacts
+end_time: 1738690274573
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 725418c2f9194b2f9eae7d1edc38c21c
+run_name: bustling-mare-439
+run_uuid: 725418c2f9194b2f9eae7d1edc38c21c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738690257724
+status: 3
+tags: []
+user_id: unknown

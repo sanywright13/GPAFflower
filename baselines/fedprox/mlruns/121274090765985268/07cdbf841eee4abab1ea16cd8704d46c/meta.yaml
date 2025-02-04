@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/121274090765985268/07cdbf841eee4abab1ea16cd8704d46c/artifacts
+end_time: 1738679401190
+entry_point_name: ''
+experiment_id: '121274090765985268'
+lifecycle_stage: active
+run_id: 07cdbf841eee4abab1ea16cd8704d46c
+run_name: rebellious-vole-421
+run_uuid: 07cdbf841eee4abab1ea16cd8704d46c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738678434094
+status: 3
+tags: []
+user_id: unknown

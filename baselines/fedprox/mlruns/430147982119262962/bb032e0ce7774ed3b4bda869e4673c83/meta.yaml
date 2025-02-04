@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/bb032e0ce7774ed3b4bda869e4673c83/artifacts
+end_time: 1738682512297
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: bb032e0ce7774ed3b4bda869e4673c83
+run_name: burly-calf-52
+run_uuid: bb032e0ce7774ed3b4bda869e4673c83
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738681640149
+status: 3
+tags: []
+user_id: unknown

@@ -103,8 +103,9 @@ def load_datasets(  # pylint: disable=too-many-arguments
      
       for i,trainset in enumerate(trainset):
         
-        trainloaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True))
-        valloaders.append(DataLoader(valsets[i], batch_size=batch_size))
+        trainloaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True ,drop_last=True ))
+        valloaders.append(DataLoader(valsets[i], batch_size=batch_size,drop_last=True  # This will drop the incomplete last batch
+))
     
       testloaders=DataLoader(testset, batch_size=batch_size)
       if New_split==True:

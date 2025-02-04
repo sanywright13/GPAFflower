@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/121274090765985268/07deaf110c7e4d8989c114f246919b8f/artifacts
+end_time: 1738679401478
+entry_point_name: ''
+experiment_id: '121274090765985268'
+lifecycle_stage: active
+run_id: 07deaf110c7e4d8989c114f246919b8f
+run_name: marvelous-mare-52
+run_uuid: 07deaf110c7e4d8989c114f246919b8f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738678483930
+status: 3
+tags: []
+user_id: unknown

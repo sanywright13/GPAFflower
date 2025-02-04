@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/9dc3fa9b5f7f49429755c6f1e46790ee/artifacts
+end_time: 1738671465042
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 9dc3fa9b5f7f49429755c6f1e46790ee
+run_name: able-ox-327
+run_uuid: 9dc3fa9b5f7f49429755c6f1e46790ee
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738671407382
+status: 3
+tags: []
+user_id: unknown

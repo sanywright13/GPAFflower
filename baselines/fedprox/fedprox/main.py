@@ -40,7 +40,7 @@ from typing import List
 from torch.utils.data import DataLoader
 strategy="gpaf"
 # Create or get experiment
-experiment_name = "fedavg_Fed_FL33"
+experiment_name = "fedavg_Fed_FL38"
 experiment = mlflow.get_experiment_by_name(experiment_name)
 if experiment is None:
         experiment_id = mlflow.create_experiment(experiment_name)
@@ -184,7 +184,7 @@ def get_server_fn(mlflow=None):
       )
 
     # Configure the server for 5 rounds of training
-    config = ServerConfig(num_rounds=10)
+    config = ServerConfig(num_rounds=3)
     return ServerAppComponents(strategy=strategyi, config=config)
  return server_fn
 

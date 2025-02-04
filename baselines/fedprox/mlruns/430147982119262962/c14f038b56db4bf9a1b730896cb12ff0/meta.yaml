@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/c14f038b56db4bf9a1b730896cb12ff0/artifacts
+end_time: 1738685168079
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: c14f038b56db4bf9a1b730896cb12ff0
+run_name: peaceful-newt-723
+run_uuid: c14f038b56db4bf9a1b730896cb12ff0
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738684550872
+status: 3
+tags: []
+user_id: unknown

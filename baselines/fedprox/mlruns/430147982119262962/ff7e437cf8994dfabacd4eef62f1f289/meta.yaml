@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/ff7e437cf8994dfabacd4eef62f1f289/artifacts
+end_time: 1738690274227
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: ff7e437cf8994dfabacd4eef62f1f289
+run_name: gifted-donkey-4
+run_uuid: ff7e437cf8994dfabacd4eef62f1f289
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738690259996
+status: 3
+tags: []
+user_id: unknown

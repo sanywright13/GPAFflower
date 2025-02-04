@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/42545b7eceb64249b6777076942d14ac/artifacts
+end_time: 1738690530431
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 42545b7eceb64249b6777076942d14ac
+run_name: adorable-rook-578
+run_uuid: 42545b7eceb64249b6777076942d14ac
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738690511322
+status: 3
+tags: []
+user_id: unknown

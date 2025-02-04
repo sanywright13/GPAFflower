@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/762068178649975800/2a4e107116e946cca8bb6dc10d0ca519/artifacts
+end_time: 1738669085646
+entry_point_name: ''
+experiment_id: '762068178649975800'
+lifecycle_stage: active
+run_id: 2a4e107116e946cca8bb6dc10d0ca519
+run_name: vaunted-stag-145
+run_uuid: 2a4e107116e946cca8bb6dc10d0ca519
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738668438076
+status: 3
+tags: []
+user_id: unknown
