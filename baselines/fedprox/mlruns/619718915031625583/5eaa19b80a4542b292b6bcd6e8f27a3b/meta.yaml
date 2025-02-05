@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/5eaa19b80a4542b292b6bcd6e8f27a3b/artifacts
+end_time: 1738757216052
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 5eaa19b80a4542b292b6bcd6e8f27a3b
+run_name: illustrious-doe-699
+run_uuid: 5eaa19b80a4542b292b6bcd6e8f27a3b
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738756689420
+status: 3
+tags: []
+user_id: unknown

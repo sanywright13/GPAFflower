@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/14f27418c9e249a18055a57b8ae8f464/artifacts
+end_time: 1738759706301
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 14f27418c9e249a18055a57b8ae8f464
+run_name: lyrical-goat-944
+run_uuid: 14f27418c9e249a18055a57b8ae8f464
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738759706017
+status: 3
+tags: []
+user_id: unknown

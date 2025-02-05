@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/bbfa0852e691468ebfee767c09af2399/artifacts
+end_time: 1738762802304
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: bbfa0852e691468ebfee767c09af2399
+run_name: rogue-horse-972
+run_uuid: bbfa0852e691468ebfee767c09af2399
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738762789629
+status: 3
+tags: []
+user_id: unknown

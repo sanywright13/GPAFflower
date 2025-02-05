@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/777fabd12e274539b7fd807c50047a36/artifacts
+end_time: 1738763280617
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 777fabd12e274539b7fd807c50047a36
+run_name: sassy-gnu-175
+run_uuid: 777fabd12e274539b7fd807c50047a36
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738763280563
+status: 3
+tags: []
+user_id: unknown

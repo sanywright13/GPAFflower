@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/850e4300c89a4e3096e8fa18cddb964c/artifacts
+end_time: 1738756463423
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 850e4300c89a4e3096e8fa18cddb964c
+run_name: nimble-grouse-756
+run_uuid: 850e4300c89a4e3096e8fa18cddb964c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738755930520
+status: 3
+tags: []
+user_id: unknown

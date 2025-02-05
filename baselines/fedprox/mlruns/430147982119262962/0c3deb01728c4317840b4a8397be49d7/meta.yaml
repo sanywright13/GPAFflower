@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/0c3deb01728c4317840b4a8397be49d7/artifacts
+end_time: 1738755467525
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 0c3deb01728c4317840b4a8397be49d7
+run_name: carefree-toad-325
+run_uuid: 0c3deb01728c4317840b4a8397be49d7
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738755450673
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/972129e7f93e4383b7eee8942a8d3132/artifacts
+end_time: 1738762554199
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 972129e7f93e4383b7eee8942a8d3132
+run_name: zealous-wren-935
+run_uuid: 972129e7f93e4383b7eee8942a8d3132
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738762553858
+status: 3
+tags: []
+user_id: unknown

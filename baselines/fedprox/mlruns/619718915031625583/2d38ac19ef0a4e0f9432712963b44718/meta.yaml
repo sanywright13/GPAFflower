@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/2d38ac19ef0a4e0f9432712963b44718/artifacts
+end_time: 1738762780746
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 2d38ac19ef0a4e0f9432712963b44718
+run_name: enchanting-grub-860
+run_uuid: 2d38ac19ef0a4e0f9432712963b44718
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738762780654
+status: 3
+tags: []
+user_id: unknown

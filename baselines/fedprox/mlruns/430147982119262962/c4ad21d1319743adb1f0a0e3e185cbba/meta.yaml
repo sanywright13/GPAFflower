@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/c4ad21d1319743adb1f0a0e3e185cbba/artifacts
+end_time: 1738754912698
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: c4ad21d1319743adb1f0a0e3e185cbba
+run_name: marvelous-koi-789
+run_uuid: c4ad21d1319743adb1f0a0e3e185cbba
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738754912595
+status: 3
+tags: []
+user_id: unknown

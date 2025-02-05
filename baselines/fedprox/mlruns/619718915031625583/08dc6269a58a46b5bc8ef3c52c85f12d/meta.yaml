@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/08dc6269a58a46b5bc8ef3c52c85f12d/artifacts
+end_time: 1738758628784
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 08dc6269a58a46b5bc8ef3c52c85f12d
+run_name: vaunted-shoat-709
+run_uuid: 08dc6269a58a46b5bc8ef3c52c85f12d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738758628721
+status: 3
+tags: []
+user_id: unknown

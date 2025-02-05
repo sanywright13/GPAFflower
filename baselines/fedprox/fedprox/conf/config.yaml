@@ -3,7 +3,7 @@
 num_clients: 3 # total number of clients
 num_epochs: 2 # number of local epochs
 batch_size: 13
-num_rounds: 4
+num_rounds: 10
 clients_per_round: 4
 stragglers_fraction: 0.9
 learning_rate: 0.03

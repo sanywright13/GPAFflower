@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/f70442448787499abc8c0466dcfe9b62/artifacts
+end_time: 1738759428091
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: f70442448787499abc8c0466dcfe9b62
+run_name: dazzling-flea-819
+run_uuid: f70442448787499abc8c0466dcfe9b62
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738759427909
+status: 3
+tags: []
+user_id: unknown

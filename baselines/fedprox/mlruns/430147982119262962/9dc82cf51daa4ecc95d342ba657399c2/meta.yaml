@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/9dc82cf51daa4ecc95d342ba657399c2/artifacts
+end_time: 1738750309098
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 9dc82cf51daa4ecc95d342ba657399c2
+run_name: powerful-hare-698
+run_uuid: 9dc82cf51daa4ecc95d342ba657399c2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738750309008
+status: 3
+tags: []
+user_id: unknown

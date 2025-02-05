@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/120af1a86a24443a94717f0da0cf650f/artifacts
+end_time: 1738749771813
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 120af1a86a24443a94717f0da0cf650f
+run_name: defiant-wolf-453
+run_uuid: 120af1a86a24443a94717f0da0cf650f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738749771748
+status: 3
+tags: []
+user_id: unknown

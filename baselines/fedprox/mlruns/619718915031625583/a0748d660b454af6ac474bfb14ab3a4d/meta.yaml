@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/a0748d660b454af6ac474bfb14ab3a4d/artifacts
+end_time: 1738760099184
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: a0748d660b454af6ac474bfb14ab3a4d
+run_name: whimsical-koi-113
+run_uuid: a0748d660b454af6ac474bfb14ab3a4d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738760087890
+status: 3
+tags: []
+user_id: unknown

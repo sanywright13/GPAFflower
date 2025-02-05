@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/fac9773133cd42e3bc8a258b846368b1/artifacts
+end_time: 1738761201042
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: fac9773133cd42e3bc8a258b846368b1
+run_name: grandiose-frog-343
+run_uuid: fac9773133cd42e3bc8a258b846368b1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738760570375
+status: 3
+tags: []
+user_id: unknown

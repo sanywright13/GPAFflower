@@ -52,7 +52,7 @@ class GPAFStrategy(FedAvg):
     ) -> None:
         super().__init__()
         
-
+      
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
          experiment_id = mlflow.create_experiment(experiment_name)
@@ -86,12 +86,15 @@ class GPAFStrategy(FedAvg):
         self.output_dim = 64   # Define output_dim
         #self.noise_dim = self.latent_dim - self.num_classes  # 192 - 2 = 190
         self.noise_dim=64
+        self.domain_dim=32
         # Initialize the new generator
         self.generator = GlobalGenerator(
             noise_dim=self.noise_dim ,
             label_dim=self.num_classes,
             hidden_dim=self.hidden_dim,
-            output_dim=self.output_dim
+            output_dim=self.output_dim,
+            domain_dim=self.domain_dim
+
         ).to(self.device)
         # Initialize server discriminator with GRL
         
@@ -213,9 +216,11 @@ save_dir="feature_visualizations_gpaf"
           noise = torch.randn(batch_size, noise_dim).to(self.device)
           labels = sample_labels(batch_size, self.label_probs)
           labels_one_hot = F.one_hot(labels, num_classes=self.num_classes).float()
-        
+          '''
+          domain_indices = torch.full((batch_size,), client_id, device=self.device, dtype=torch.long)  # Fixed dtype
+
           with torch.no_grad():
-            global_z = self.generator(noise, labels_one_hot).cpu().numpy()
+            global_z = self.generator(noise, labels_one_hot,domain_indices).cpu().numpy()
           # Visualize with class-colored global features
           self.feature_visualizer.visualize_global_local_features(
             client_features_dict=self.current_features,
@@ -224,6 +229,7 @@ save_dir="feature_visualizations_gpaf"
             global_labels=labels.numpy(),
             epoch=server_round
         )
+        '''
         return avg_accuracy, {"accuracy": avg_accuracy}
     def configure_evaluate(
       self, server_round: int, parameters: Parameters, client_manager: ClientManager
@@ -546,20 +552,81 @@ save_dir="feature_visualizations_gpaf"
         return classifier
    
     def _train_generator(self,label_probs, classifier_params:  List[NDArrays]):
+     with self.mlflow.start_run(run_id=self.server_run_id):  
+ 
       """Train the generator using the ensemble of client classifiers."""
-      with self.mlflow.start_run(run_id=self.server_run_id):  
-        noise_dim = 64
-        label_dim = 2
-        hidden_dim = 256
-        output_dim = 64
-        batch_size = 13
-        learning_rate = 0.001
-        num_epochs = 10
-        # Optimizer
-        optimizer = torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
-        criterion = nn.CrossEntropyLoss()
+      noise_dim = 64
+      label_dim = 2
+      hidden_dim = 256
+      output_dim = 64
+      batch_size = 13
+      learning_rate = 0.001
+      num_epochs = 10
+      num_domains=3
+      # Optimizer
+      optimizer = torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
+      criterion = nn.CrossEntropyLoss()
+      for epoch in range(num_epochs):
+        print('====== Training Generator=====')
+        epoch_loss = 0.0
 
+        # Sample labels and prepare tensors
+        labels = sample_labels(batch_size, label_probs)
+        labels = torch.tensor(labels, dtype=torch.long).to(self.device)
+        labels_one_hot = F.one_hot(labels, num_classes=label_dim).float().to(self.device)
+        
+        # Sample noise
+        mu = torch.zeros(batch_size, noise_dim).to(self.device)
+        logvar = torch.zeros(batch_size, noise_dim).to(self.device)
+        noise = reparameterize(mu, logvar)
+    
+        optimizer.zero_grad()
+        logits = []
+    
+        # Reset total loss for this epoch
+        total_loss = 0.0  # Moved here
+
+        # Iterate over domains
+        for domain_idx, params in enumerate(classifier_params):
+          # Create domain embedding for current domain
+          
+          domain_indices = torch.full((batch_size,), domain_idx, device=self.device, dtype=torch.long)  # Fixed dtype
+          domain_embeddings = domain_indices
+          # Generate domain-specific features
+          z = self.generator(noise, labels_one_hot, domain_embeddings)
+
+          # Convert parameters to proper format if they're named parameters
+          if hasattr(params, '__iter__') and not isinstance(params, (list, tuple, np.ndarray)):
+            params = [p.detach().cpu().numpy() for _, p in params]
+        
+          client_model = self._create_client_model(params)
+          client_model = client_model.to(self.device)
+          client_model.eval()
+        
+          client_logits = client_model(z)
+          logits.append(client_logits)
+          domain_loss = criterion(client_logits, labels)
+          total_loss += domain_loss
+
+      if not logits:
+        raise ValueError("No valid logits generated from client models")
+
+      # Average loss across all domains
+      loss = total_loss / num_domains
+
+      # Backpropagate and update generator
+      loss.backward()
+      optimizer.step()
+      epoch_loss += loss.item()
+
+      # Log metrics using mlflow directly
+      self.mlflow.log_metrics({
+        "generator_loss": epoch_loss,
+        "epoch": epoch,
+    }, step=epoch)
        # Training loop
+
+    '''
         for epoch in range(num_epochs):
           print('====== Training Generator=====')
           epoch_loss = 0.0
@@ -616,6 +683,7 @@ save_dir="feature_visualizations_gpaf"
                 }, step=epoch)
 
           print(f"Generator Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
-            
+          
         save_dir = "z_representations"
+    '''  
      

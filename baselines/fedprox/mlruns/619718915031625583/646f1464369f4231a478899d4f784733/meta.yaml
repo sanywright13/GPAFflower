@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/646f1464369f4231a478899d4f784733/artifacts
+end_time: 1738763649200
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 646f1464369f4231a478899d4f784733
+run_name: tasteful-chimp-557
+run_uuid: 646f1464369f4231a478899d4f784733
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738763617016
+status: 3
+tags: []
+user_id: unknown

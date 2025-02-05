@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/a323a6b34fa94f26a574ae5134d4f16e/artifacts
+end_time: 1738759418806
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: a323a6b34fa94f26a574ae5134d4f16e
+run_name: sincere-kit-607
+run_uuid: a323a6b34fa94f26a574ae5134d4f16e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738759418760
+status: 3
+tags: []
+user_id: unknown

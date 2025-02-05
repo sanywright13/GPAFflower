@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/1414f91a41ed46bf908cbe6d0ed83a20/artifacts
+end_time: 1738759706676
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 1414f91a41ed46bf908cbe6d0ed83a20
+run_name: fearless-wolf-148
+run_uuid: 1414f91a41ed46bf908cbe6d0ed83a20
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738759696296
+status: 3
+tags: []
+user_id: unknown

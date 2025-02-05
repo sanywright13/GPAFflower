@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/0269145d9f4d413fbe9572ce555d7b09/artifacts
+end_time: 1738761200735
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 0269145d9f4d413fbe9572ce555d7b09
+run_name: overjoyed-bug-51
+run_uuid: 0269145d9f4d413fbe9572ce555d7b09
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738760530542
+status: 3
+tags: []
+user_id: unknown

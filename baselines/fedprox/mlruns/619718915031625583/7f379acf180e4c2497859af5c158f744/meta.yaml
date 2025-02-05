@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/7f379acf180e4c2497859af5c158f744/artifacts
+end_time: 1738759427564
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 7f379acf180e4c2497859af5c158f744
+run_name: mysterious-calf-97
+run_uuid: 7f379acf180e4c2497859af5c158f744
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738759427402
+status: 3
+tags: []
+user_id: unknown

@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/b68e8877ee234f538c1a1920c3a18050/artifacts
+end_time: 1738755467066
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: b68e8877ee234f538c1a1920c3a18050
+run_name: caring-elk-646
+run_uuid: b68e8877ee234f538c1a1920c3a18050
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738755444283
+status: 3
+tags: []
+user_id: unknown

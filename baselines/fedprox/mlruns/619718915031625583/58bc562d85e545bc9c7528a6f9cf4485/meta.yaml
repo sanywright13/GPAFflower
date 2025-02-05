@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/58bc562d85e545bc9c7528a6f9cf4485/artifacts
+end_time: 1738762554946
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 58bc562d85e545bc9c7528a6f9cf4485
+run_name: abundant-turtle-693
+run_uuid: 58bc562d85e545bc9c7528a6f9cf4485
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738762554635
+status: 3
+tags: []
+user_id: unknown

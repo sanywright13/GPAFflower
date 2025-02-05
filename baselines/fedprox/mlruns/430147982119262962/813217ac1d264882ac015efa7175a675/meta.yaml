@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/813217ac1d264882ac015efa7175a675/artifacts
+end_time: 1738751107529
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: 813217ac1d264882ac015efa7175a675
+run_name: valuable-bat-757
+run_uuid: 813217ac1d264882ac015efa7175a675
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738751107426
+status: 3
+tags: []
+user_id: unknown

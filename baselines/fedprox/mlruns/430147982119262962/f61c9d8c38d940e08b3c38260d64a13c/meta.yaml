@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/430147982119262962/f61c9d8c38d940e08b3c38260d64a13c/artifacts
+end_time: 1738754191098
+entry_point_name: ''
+experiment_id: '430147982119262962'
+lifecycle_stage: active
+run_id: f61c9d8c38d940e08b3c38260d64a13c
+run_name: fortunate-carp-9
+run_uuid: f61c9d8c38d940e08b3c38260d64a13c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738754191017
+status: 3
+tags: []
+user_id: unknown

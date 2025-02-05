@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/60cb8db2ed0a402982b586600fada27e/artifacts
+end_time: 1738759378681
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: 60cb8db2ed0a402982b586600fada27e
+run_name: sassy-turtle-343
+run_uuid: 60cb8db2ed0a402982b586600fada27e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738759378622
+status: 3
+tags: []
+user_id: unknown
