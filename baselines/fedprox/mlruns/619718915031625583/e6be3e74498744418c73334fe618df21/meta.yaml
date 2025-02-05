@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/e6be3e74498744418c73334fe618df21/artifacts
+end_time: 1738773266054
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: e6be3e74498744418c73334fe618df21
+run_name: intelligent-slug-696
+run_uuid: e6be3e74498744418c73334fe618df21
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738773168252
+status: 3
+tags: []
+user_id: unknown
