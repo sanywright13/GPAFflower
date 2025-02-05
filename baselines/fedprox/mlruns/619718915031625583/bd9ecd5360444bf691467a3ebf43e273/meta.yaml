@@ -1,0 +1,15 @@
+artifact_uri: file:///content/GPAFflower/baselines/fedprox/mlruns/619718915031625583/bd9ecd5360444bf691467a3ebf43e273/artifacts
+end_time: 1738787832172
+entry_point_name: ''
+experiment_id: '619718915031625583'
+lifecycle_stage: active
+run_id: bd9ecd5360444bf691467a3ebf43e273
+run_name: smiling-owl-362
+run_uuid: bd9ecd5360444bf691467a3ebf43e273
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738782764564
+status: 3
+tags: []
+user_id: unknown

@@ -15,7 +15,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 import json
 from flwr.server.strategy import Strategy,FedAvg
-from fedprox.models import Encoder, Classifier,test,test_gpaf ,GlobalGenerator,reparameterize,sample_labels,generate_feature_representation,LocalDiscriminator
+from fedprox.models import Encoder, Classifier,test,test_gpaf ,GlobalGenerator,reparameterize,sample_labels,generate_feature_representation,LocalDiscriminator,get_resnet18_encoder
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 from flwr.server.client_proxy import ClientProxy
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
@@ -128,7 +128,9 @@ save_dir="feature_visualizations_gpaf"
     def initialize_parameters(self, client_manager):
         print("=== Initializing Parameters ===")
         # Initialize your models
-        encoder = Encoder(self.latent_dim)
+        #encoder = Encoder(self.latent_dim)
+        encoder =get_resnet18_encoder(self.latent_dim)
+
         classifier = Classifier(latent_dim=64, num_classes=2)
         local_discriminator = LocalDiscriminator(
             feature_dim=self.latent_dim, 
