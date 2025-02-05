@@ -15,7 +15,7 @@ client_resources:
 server_device: cpu
 
 dataset_config:
-  iid: false
+  iid: true
   balance: false
   power_law: true
   dataset_name: breastmnist

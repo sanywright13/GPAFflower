@@ -31,7 +31,7 @@ from flwr.common import (
     parameters_to_ndarrays,
 )
 import os
-from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,LocalDiscriminator,FeatureGenerator ,ConditionalDiscriminator
+from fedprox.models import train_gpaf,test_gpaf,Encoder,Classifier,Discriminator,GlobalGenerator,GradientReversalLayer,LocalDiscriminator,FeatureGenerator ,ConditionalDiscriminator,get_resnet18_encoder
 from fedprox.dataset_preparation import compute_label_counts, compute_label_distribution
 from fedprox.features_visualization import extract_features_and_labels,StructuredFeatureVisualizer
 class FederatedClient(fl.client.NumPyClient):
@@ -390,8 +390,8 @@ strategy='fedavg'
         num_classes = 2  
         # Initialize cGAN components
         
-
-        encoder = Encoder(latent_dim).to(device)
+        encoder=get_resnet18_encoder(latent_dim)
+        #encoder = Encoder(latent_dim).to(device)
         classifier = Classifier(latent_dim=64, num_classes=2).to(device)
         #print(f' clqssifier intiliation {classifier}')
         discriminator = Discriminator(latent_dim=64).to(device)
